@@ -1,0 +1,75 @@
+{\xiaosi
+
+\chapter{技术细节}
+
+\section{NJTREE软件}
+
+NJTREE软件是整个TreeFam数据库的核心。它实现了本文所讲述的几乎所有算法，包括
+对有根树和无根树的约束邻接法，树的定根和自展检验，叶结点重排算法，多分叉物种树的
+倍增/缺失推断和树合并算法。NJTREE也为TreeFam自动流程的建立和第六章的评测
+提供了大量的工具。另外，NJTREE也囊括了PHYML~\cite{guindon03}的源码，这使得它
+可以进行许多极大似然相关的运算。在某种程度上说，整篇论文实际是在介绍
+NJTREE软件的工作原理。
+
+NJTREE软件是非常高效的。它比任何其它的实现了邻接法的程序都更快，它也能以极高的速度计算
+极大似然距离，经我们修改过的PHYML算法也比原来快了20\%。另外，我们也为NJTREE设计了
+一个图形界面(graphical use interface, GUI)，称做FLNJTREE。这个软件基于
+跨平台的FLTK图形库，可以在UNIX（包括LINUX）和Windows下编译。图~\ref{fig:flnjtree}
+给出了FLNJTREE的一个抓屏。
+
+\begin{figure}[!hb]
+\includegraphics[width=\textwidth]{flnjtree}
+\caption{FLNJTREE软件的截屏。}\label{fig:flnjtree}
+\end{figure}
+
+\section{MySQL结构}
+在服务器端，TreeFam基于MySQL关系数据库──世界上最受欢迎的开源数据库引擎。
+除了原始的PhIGs比对信息没有入库，其它所有数据都存于MySQL中。TreeFam数据库的
+整体结构相对简单。大部分表(table)可以分成三类：存储基因属性的表，存储基因家族信息的表
+和建立两者关系的表。表~\ref{tab:mysql-table}给出了TreeFam数据库所使用的关键的一些表，
+图~\ref{fig:schemata}则显示了它们之间的关系。要提出的是，TreeFam直接使用基因和家族
+的索引号(accession)作为表的索引，这是会影响效率的~\footnote{\href{http://www.informit.com/articles/article.asp?p=377652\&seqNum=1}}，
+但由于目前来看TreeFam数据库的效率已经足够，我们还是暂用这种更易理解的结构。
+TreeFam的MySQL数据库已经对外公开，地址为{\bf db.treefam.org:3308}，只读
+帐号为无密码的{\bf anonymous}。
+
+\begin{figure}[!hb]
+\includegraphics[width=\textwidth]{schemata}
+\caption[TreeFam表结构关系图]{TreeFam表结构关系图。这张图是由\href{http://www.fabforce.net/dbdesigner4/}
+  {DBDesigner4}生成的。}\label{fig:schemata}
+\end{figure}
+
+\begin{table}[!hb]
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+Table & Description \\
+\hline
+genes & sequence ID, gene name, transcript name, symbol, description and so on \\
+species & tax ID, taxonomy name, {\it abbr.} name, and common name of species \\
+map & genomic locations of transcripts; in UCSC format \\
+pfam & Pfam predictions for each sequence \\
+aa\_seq & amino acid sequences \\
+nt\_seq & nucleotide sequences \\
+familyA & accessions, symbols and names of TreeFam-A families \\
+familyB & basic information on TreeFam-B families \\
+famB2A & relation between curated TreeFam-A and original TreeFam-B families \\
+phigs & PhIGs accessions of TreeFam-B families \\
+trees & phylogenetic trees in NHX format \\
+misc\_feat & symbols and names of B families; curators of A families \\
+misc\_key & descriptions of `key' used in `misc\_feat' table \\
+aa\_seed\_align & amino acids multialignment for TreeFam-A seeds in CIGAR format \\
+aa\_full\_align & full multialignment for both A and B families in CIGAR format \\
+hmmer & HMMer scores of matched sequences \\
+\hline
+\end{tabular}
+\end{center}
+\caption[TreeFam数据库表的内容]{TreeFam数据库表的内容。不太重要的和向后兼容的表没有列在其中。}\label{tab:mysql-table}
+\end{table}
+
+\section{Perl API}
+我们推荐使用TreeFam的Perl-API (application programming interface)来连接数据库
+以取得TreeFam的各种信息。TreeFam-API也实现了一个简单的NHX格式的解析器，和
+图形化显示树和比对的工具。完整的文档请参见\href{http://www.treefam.org/api/}{http://www.treefam.org/api/}。
+
+}

@@ -1,0 +1,80 @@
+\newif\ifPDF
+\ifx\pdfoutput\undefined\PDFfalse
+\else\ifnum\pdfoutput > 0\PDFtrue
+	\else\PDFfalse
+	\fi
+\fi
+
+\ifPDF
+	\documentclass[pdftex,11pt,openany,twoside]{book}
+	\RequirePackage[hyperindex,colorlinks,plainpages=false]{hyperref}
+	\hypersetup{pdfauthor={Heng Li},linkcolor=blue,citecolor=blue,urlcolor=blue}
+	\usepackage{graphicx}
+	\DeclareGraphicsRule{*}{mps}{*}{}
+\else
+	\documentclass[11pt,openany,twoside]{book}
+	\usepackage{graphicx}
+	\newcommand{\href}[2]{\textcolor{MYBLUE}{#1}}
+\fi
+
+
+\usepackage[%paperwidth=18.4cm, paperheight=26cm,
+body={14.6true cm,22true cm},
+twosideshift=0 pt,
+%headheight=1.0true cm
+]{geometry}
+
+\usepackage{caption2}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+% with this we ensure that the chapter and section
+% headings are in lowercase.
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername \ \thechapter. \ #1}{}}
+%\renewcommand{\sectionmark}[1]{\markright{\thesection\ #1}}
+\fancyhf{} % delete current setting for header and footer
+\fancyhead[LE,RO]{\bfseries\thepage}
+\fancyhead[LO]{\bfseries\leftmark}
+\fancyhead[RE]{\bfseries Constructing TreeFam Database}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0pt}
+\addtolength{\headheight}{0.5pt} % make space for the rule
+\addtolength{\headwidth}{10pt} % make space for the rule
+\fancypagestyle{plain}{%
+\fancyhead{} % get rid of headers on plain pages
+\renewcommand{\headrulewidth}{0pt} % and the line
+}
+
+\sloppy
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage[usenames,dvips]{color}
+\usepackage{makeidx}
+
+\usepackage{flafter}
+\usepackage[below]{placeins}
+\usepackage{floatflt}
+
+\definecolor{MYRED}{rgb}{1,0,0}
+\definecolor{MYBLUE}{rgb}{0,0,1}
+%\newcommand{\lhcomm}[1]{\textcolor{MYRED}{#1}}
+\newcommand{\lhcomm}[1]{#1}
+
+\addtolength{\headsep}{-0.1cm}
+\addtolength{\footskip}{-0.1cm} 
+
+\renewcommand{\textfraction}{0.15}
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\bottomfraction}{0.65}
+\renewcommand{\floatpagefraction}{0.60}
+
+\renewcommand{\captionfont}{\fontsize{10pt}{12pt}\selectfont}
+
+\addtolength{\oddsidemargin}{1.2cm}
+\addtolength{\evensidemargin}{-1.2cm}
+
+%\addtolength{\textwidth}{3cm}
+%\addtolength{\hoffset}{-1.5cm}
+%\addtolength{\textheight}{4cm}
+%\addtolength{\voffset}{-2cm}
+
+\makeindex

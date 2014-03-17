@@ -1,0 +1,218 @@
+\include{header-cjk}
+\newcommand{\lhchild}{\mathrm{chi}}
+\newcommand{\lhparent}{\mathrm{par}}
+\newcommand{\lhlca}{\mathrm{lca}}
+\newcommand{\lhopt}{\mathrm{opt}}
+\newcommand{\lhloss}{\mathrm{loss}}
+\newcommand{\lhspace}{\hspace{20pt}}
+
+%\usepackage{bioinformatics}
+%\bibliographystyle{bioinformatics}
+
+\begin{document}
+\begin{CJK*}{GBK}{song}
+
+%\begin{titlepage}
+%\thispagestyle{empty}
+%\begin{center}
+%\begin{verbatim} 
+%  
+%\end{verbatim} 
+%\vspace{5cm}
+%{\bf\huge 建立TREEFAM数据库}\\
+%\vspace{4cm}
+%{\large 李恒\\
+%\vspace{0.2cm}
+%导师：郑伟谋 \\
+%\vspace{0.2cm} 
+%中国科学院理论物理所\\
+%\vspace{3cm}
+%2006年5月}\\ 
+%\end{center}
+%\end{titlepage}
+
+\setcounter{page}{1}
+
+\newpage
+{\xiaosi
+\begin{center}
+\thispagestyle{empty}
+{\bf\LARGE TreeFam数据库的建立}\\
+\vspace{1cm}
+{\large 李恒 （理论物理专业）}\\
+{\large 导师：郑伟谋}\\
+\vspace{0.2cm}
+{\large 中国科学院理论物理所}
+\end{center}
+\vspace{1cm}
+{\flushleft {\bf 摘要：}TreeFam同源基因数据库是关于基因家族进化的数据库。它致力于发展成为一个经过人工校正，准确而又翔实
+的资源，提供所有已知动物基因家族的进化历程以及可靠的直系同源与旁系同源信息。在开发TreeFam数据库的过程中，
+我们设计了四个新颖的算法以提高构建进化树的准确性及辅助数据库建设。第一个算法是约束邻接法。给定
+一个特定子树的拓扑，这个算法可以高效的重构整个进化树而不改变给定子树的拓扑结构；这样人工校正结果可以得以保留。
+第二个是叶节点重排算法。在画树时，这个算法保证叶节点以接近指定的顺序在平面排列，从而使得相似的树
+画在纸面上有着相似的视觉效果。第三个算法是推断基因倍增/缺失算法。在这一部分中，我们把前人的推断算法纳入
+更加一般的理论框架，并将其推广于物种树为多分岔的情形。基因倍增/缺失推断算法的概率形式也在这一章得到讨论。
+第四个算法是树合并算法，它结合多棵从同一序列集构造的基因树，通过减少推断出的
+倍增/缺失事件和选择较高的自展支持而构建一棵最优树从而超越所有备选树。在文章结尾基于真实数据的
+评测表明树合并算法可以显著提高建树的准确性；而这一事实也说明：尽管简约法与极大似然法一般而言更加准确，
+它们仍不可完全替代距离法。各种方法的相互补充是准确建树的关键。TreeFam数据库的网址是\href{http://www.treefam.org}{http://www.treefam.org}，
+在中国的镜像为\href{http://treefam.genomics.org.cn}{http://treefam.genomics.org.cn}。}
+
+{\flushleft {\bf 关键词：}分子进化，进化树重构，数据库}
+
+\newpage
+\thispagestyle{empty}
+\begin{center}
+{\bf\LARGE Constructing the TreeFam database}\\
+\vspace{0.7cm}
+{Li Heng (Major in Theoretical Physics)}\\
+{Directed by Zheng Wei-mou}\\
+\vspace{0.2cm}
+{The Institute of Theoretical Physics}\\
+{Chinese Academic of Science}
+\end{center}
+\vspace{0.7cm}
+{\flushleft {\bf Abstract:}
+TreeFam is a database of phylogenetic trees of gene families. It aims
+to develop a curated resource that presents the accurate evolutionary
+history of all animal gene families, as well as reliable orthologs and
+paralog assignment.
+In developing TreeFam, four novel algorithms
+were designed to improve the accuracy of tree building or to serve
+special needs for development. The first is \lhcomm{a} constrained neighbour-joining
+that efficiently adds new sequences to an existing tree while maintaining
+the original topology at the same time. This method is used to expand
+a seed tree to a full tree without losing any information added by
+manual curation. The second algorithm is \lhcomm{a} leaf reordering that
+orders the leaves of a tree according to the weights of leaves.
+\lhcomm{When it is drawn as a} picture, one tree can be displayed in different
+ways, depending on the order of leaves. This algorithm helps to
+display trees in a \lhcomm{consistent algorithm} and facilitates
+visual examination of trees, which is particularly helpful when
+comparing two trees. Thirdly, duplication and loss inference
+is fit into a more general theoretical framework and extended to allow for
+a multifurcated species tree. \lhcomm{A fourth algorithm has also been developed,
+which is a new algorithm for merging trees.}
+\lhcomm{The tree merge algorithm} itself is not a tree building algorithm, but it
+reconstructs an optimal tree from several trees
+that are built from an identical sequence set with different tree building
+methods. The resultant tree \lhcomm{should} combine the advantages
+of, and so outperform, all the candidates. This is \lhcomm{shown to occur successfully}
+in a large-scale benchmark presented in the last chapter.
+This benchmark is one of the few evaluations that are based on real data
+\lhcomm{in the phylogenetics literature}.
+It also \lhcomm{highlights the fact} that each tree-building algorithm has its own strength,
+although ML and parsimonious methods are slightly better in general.
+TreeFam is freely available at \href{http://www.treefam.org}{http://www.treefam.org} or
+\href{http://treefam.genomics.org.cn}{http://treefam.genomics.org.cn}.}
+
+{\flushleft {\bf Keywords:} molecular phylogenetics, tree reconstruction, database}
+
+\newpage
+
+\tableofcontents
+\addcontentsline{toc}{chapter}{Contents}
+\listoffigures
+\listoftables
+
+}
+
+\include{introduction-cjk}
+\include{treefam-cjk}
+\include{build-tree-cjk}
+\include{dli-cjk}
+\include{tree-merge-cjk}
+\include{evaluation-cjk}
+
+{\xiaosi
+
+\chapter{结论及展望}
+本文介绍了整个TreeFam数据库构建的整体思路和流程，并着重描述了在建设TreeFam过程中为获得更准确的进化树
+而作出的努力。截至论文定稿，在线版本TreeFam-2(图\ref{fig:treefam-shot})已经覆盖了约93\%哺乳动物基因，
+它包含有15154个自动构建的多细胞动物基因家族
+和1174个经过人工校正的基因家族，已校正的家族包括包括细胞周期相关蛋白、多种激酶和翻译起始因子等重要基因。
+同时，TreeFam小组也正在紧张的构建新的版本TreeFam-3。在新的版本中，更多的物种会被加入进来，原有流程将继续得以改进，基因表达谱的
+数据也会结合到数据库中。新的TreeFam-3已于今年6月发布。
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=\textwidth]{treefam-shot}
+\caption{TreeFam数据库网站截屏}\label{fig:treefam-shot}
+\end{center}
+\end{figure}
+
+TreeFam数据库的最独特之处是人工校正的使用，而人工校正信息的利用则是通过约束邻接法来实现的，从这个角度说，
+整个TreeFam数据库的算法基础是约束邻接法。目前文章给出了一种假定输入约束树是有根树的实现，并提到了
+可以应用于无根二岔约束树的算法，但事实上，对无根多岔约束树的约束邻接法也是可行的，并且可以继续保持标准邻接法
+的时间复杂度$O(N^3)$，这一算法正处于实现阶段。另外，约束邻接法存在的一个问题是邻接法建树的准确性一般不如
+最大简约法(MP)和极大似然法(ML)，不使用这两种更可靠方法的原因仅仅是实现上的困难，从长远来看，将约束用于更好建树算法
+是必要的。
+
+TreeFam数据库使用树合并算法来提高自动建树的精度，这个算法也是本文的另一个主要贡献和大部分篇幅之所在。
+该算法可以捕捉生物学家重构基因树时所用的信息，自动在局部拓扑上选择合适的算法和模型。评测显示树合
+并算法比所有单一模型的建树算法更加准确，而这一结果进一步揭示了不同单一模型建树算法尽管在整体上存
+在着准确性的差异，但它们或多或少起着补充作用；这即是说，有些单一模型算法也许整体准确度不是很好，但
+对特定的情形可能优于其它算法。尽可能的尝试各种单一模型建树算法始终是准确建树的保证。另外，树合并算法
+的推导也为树的拓扑优化问题给出了一种比较普适的模板，它事实上是一致树算法的更一般形式，这也具有一定的
+方法学意义。树合并算法的不足是它只能用于物种关系确定的基因树的构建，尽管它的算法本身并不要求这一点，
+但实用中似乎只有基因树和物种树相似这一条件可以发挥树合并算法的最大效能。要指出的是，经过适当修改，树
+合并算法也可以用于无根树的合并，但由于目前对无根树没有合适的目标函数以用来优化拓扑，这个算法暂无很实
+际的意义。
+
+树合并算法基于倍增/缺失推断算法，这个概念早在近30年前就被提出并在10年前实现，而本文对这一方法的改进有二：一是
+将其纳入了一个更普适的理论框架，这为树合并算法和倍增/缺失推断的进一步应用奠定了理论基础；二是将推断推广到了物种
+树包含多分岔的情形，由于物种树的多分岔是十分常见的，只有考虑了这种情形的算法才是实用的。
+
+类似地，叶结点重排算法也是一个实用算法。该算法首次提出了有根进化树画法的问题，并以一个简单的方式有效地解决了这个问题。
+尽管叶结点重排算法不会改进树的拓扑，但它能改进树的视觉效果，这在从同一序列集构建的树的比较中有着重要作用，它也使得
+TreeFam中的树总能以确定的规则显示于网页。
+
+本文所描述的四个新算法都是在开发TreeFam数据库时应运而生的，它们既有方法学的意义又很有实用价值。但是，尽管本文
+着力讲述各种算法，TreeFam数据库的意义却并不仅在于此。TreeFam更重要的意义在于为分子生物学家提供绝大部分基因的进化关系，辅助他们在
+实用中传递基因注释的信息，并为基因功能的发掘提供新的线索。TreeFam的意义还在于为分子进化学家提供一个可靠
+的资源，以使他们能利用TreeFam的数据进行更进一步的进化分析。在今后的一段时间，我们除了致力于开发数据更准确、
+信息更全、使用更方便的进化树的数据库，还会利用TreeFam的数据探索一些进化问题，比如内含子起源和进化以及发生复制后
+基因特性的变化等问题。解决生物问题才是生物信息学的最终目的。
+
+}
+
+\appendix
+\include{implementation-cjk}
+
+\refstepcounter{chapter}
+\addcontentsline{toc}{chapter}{参考文献}
+\bibliographystyle{unsrt}
+\bibliography{ref}
+
+\refstepcounter{chapter}
+\addcontentsline{toc}{chapter}{发表文章}
+\include{publications-cjk}
+
+\refstepcounter{chapter}
+\addcontentsline{toc}{chapter}{致谢}
+\chapter*{致谢}
+首先，我要感激我的导师郑伟谋，是他将我带入生物信息的王国，也是他既予以我遵遵教诲又给了我充分的发展空间，
+使我度过了积极而又多彩的博士生活。
+
+下面我要感谢王俊和我在中国科学院北京基因组研究所(BGI)的所有朋友和同事。
+我在BGI度过了我的大部分博士生活，是他们给了我三年快乐而又激动人心的时光。
+我要特别感谢王俊给了我和Sanger中心的TreeFam小组合作的机会，也感谢刘涛对我
+一直以来的帮助和支持。
+
+我同样感谢来自Sanger中心TreeFam小组的帮助和指导，他们是：Richard Durbin, Avril Coghlan, Jean-Karim Heriche, Lachlan James Coin, 和Alan Moses。
+Richard是TreeFam之父，它提出了TreeFam的基本概念和整体上的实现方案，没有他就没有TreeFam项目也就没有我的这篇论文。
+Avril, Jean-Karim和Alan仔细阅读了这篇论文并给出了许多有用的评论和修改意见。我要特别感谢他们对我
+并不流利的英文展现出的极大耐心。Lachlan和Avril对我第五章的早期版本提出了许多改进意见，他们深刻的评述
+使得这一章更加充实和具有普遍性。另外，我也从和Sanger TreeFam小组的交流上学到了许多东西。TreeFam始终是集体努力的结晶。
+
+在此我也要感谢我的丹麦朋友，尤其是对Lars Bolund表示特殊感谢。我在丹麦时，他为我提供了平静而又和谐的
+环境使我能够集中于TreeFam项目和论文的写作，我欠他许多。同时我也要感谢郝柏林老师给我的教导，
+感谢郭玲老师在我不在理论物理所时给予的帮助，以及感谢我在理论物理所的所有室友和同学对我的帮助。
+
+最后，我要谢谢我的父母和妻子，感谢他们始终默默的支持我的工作。
+
+%\refstepcounter{chapter}
+%\addcontentsline{toc}{chapter}{Index}
+%\printindex
+\end{CJK*}
+\end{document}

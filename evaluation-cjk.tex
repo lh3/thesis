@@ -1,0 +1,262 @@
+{\xiaosi
+\chapter{建树算法及模型的评测}\label{chap:benchmark}
+
+尽管众多建树算法与模型为进化学家重构进化树时提供了大量备选，但各种算法与模型间的差异往往令他们迷惑。
+给定一个同源基因(homolog)的序列集，究竟哪一种算法合适至少开始时一般是未知的。序列较少的情况下生物学家们可以付诸实验或
+查阅大量文献来确定准确的进化关系，但对于大规模数据，这样费时费力的工作是难以想象的；即使这样的工作
+可以在以年为周期的长时间内完成──比如TreeFam项目──准确地自动建树也必将有助于减少工作量，同时也可以有效避免由于错误建树
+而引起的误差。对于TreeFam数据库，这样的评测结果有着重要意义。
+
+许多作者对建树算法及模型的准确性作出了评测。根据测试集类型的不同，这些评测可以分成三类：a) 基于四到五个叶节点
+简单进化树的纯理论分析~\cite{gaut95,huelsenbeck95,yang96}；b) 基于计算模拟数据的大规模分析~\cite{kuhner94,hall05,hollich05}；
+以及c) 基于实验操控的真实数据的评测~\cite{hillis92,hillis94,bull97}。尽管这些评测为算法与模型的选择提供了
+宝贵的准则，它们都存在着各自的缺陷：理论分析只能应用于叶节点很少的进化树，而实际树往往有几十甚至上百个节点；
+模拟数据可以避免这一不足，但序列产生模型很可能有悖于真实历史从而造成评测上的偏差；基于实验的评测通过实验控制
+进化历程，但这一人工操控的过程也不能保证和真实历史相符。真正合理的数据来源于大规模的真实数据，但问题是我们很难
+确切的获知真实的进化历史。
+
+在这一章中我将给出一个新颖的评测。它在两点上不同于以往的所有评测：第一，测试数据集来源于经人工校正的
+大规模真实数据；第二，使用基因倍增/缺失数来衡量建树的准确性，而这个量是模型无关的。受限于专家校正的准确性和
+个例下真实进化倾向于更多倍增/缺失数的可能性，这个评测也许还不能对哪种算法更优秀作一个最终定论。但这次评测
+必将对算法的选择提供有益的参考，也将揭示算法固有的一些特性。
+
+\section{参与评测的算法及模型}
+
+本次评测覆盖三大类经典算法：距离法(distance-based method)，简约法(maximum parsimony)~\cite{fitch71}与极大似然
+法(maximum likelihood)~\cite{felsenstein81}，包括常用的核苷及氨基酸模型。两种合并树也参与了评测。
+表~\ref{tab:eval-algo}给出了参与评测的17种进化树。下面几段给出了更多的细节。
+
+\begin{table}
+\begin{center}
+\caption[参与评测的算法和模型]{参与评测的算法和模型。其中，参数$\kappa$
+	是颠换/转换比，$\alpha$是$\Gamma$分布的形状因子。$\Gamma$分布用$C$个离散变量来近似。}\label{tab:eval-algo}
+\begin{tabular}{|l|l|}
+\hline
+Name & Method \\
+\hline
+{\tt CUR} & Curated trees from TreeFam \\
+\hline
+{\tt NJ-NT-HKY4} & Neighbour-Joining, HKY model, $C=4$, $\alpha=1.0$, $\kappa$ estimated \\
+{\tt NJ-AA-WAG4} & Neighbour-Joining, WAG model, $C=4$, $\alpha=1.0$ \\
+{\tt NJ-NT-dN} & NJ, non-synonymous distance, no correction for multi-substitutions \\
+{\tt NJ-NT-dS} & NJ, sysnonymous distance, no correction for multi-substitutions \\
+{\tt NJ-AA-MM} & NJ, p-distance (or mismatch) distance, no correction \\
+{\tt NJ-AA-Kmr} & NJ, with Kimura correction \\
+{\tt ME-NT-HKY4} & FastME, HKY model, $C=4$, $\alpha=1.0$, $\kappa$ estimated \\
+{\tt ME-AA-WAG4} & FastME, WAG model, $C=4$, $\alpha=1.0$ \\
+\hline
+{\tt PAR-NT} & Parsimony (dnapars) \\
+{\tt PAR-AA} & Parsimony (protpars) \\
+\hline
+{\tt ML-NT-HKY4} & PHYML, HKY, $C=4$, $\alpha=1.0$, $\kappa$ estimated \\
+{\tt ML-NT-HKY2} & PHYML, HKY, $C=2$, $\alpha=1.0$, $\kappa$ estimated \\
+{\tt ML-NT-HKY1} & PHYML, HKY, $C=1$, $\alpha=1.0$, $\kappa$ estimated \\
+{\tt ML-AA-WAG4} & PHYML, WAG, $C=4$, $\alpha=1.0$ \\
+\hline
+{\tt MJ-NT-dM} & Tree merge from {\tt NJ-NT-dS} and {\tt NJ-NT-dN} \\
+{\tt MERGE} & Tree merge from {\tt ML-NT-HKY4}, {\tt ML-AA-WAG4}, {\tt NJ-NT-dN} and {\tt NJ-NT-dS}\\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+距离法实际上是一大类算法的总称，包括：Fitch-Margoliash~\cite{fitch67}
+ME (Minimum Evolution，最小进化)~\cite{rzhetsky93}，UPGMA~\cite{sokal58}
+NJ (Neighbour-Joining，邻接法)~\cite{saitou87}\index{NJ, neighbour-joining}
+和一些邻接法的变形。出于标准邻接法的普遍性和最小进化法的准确性~\cite{desper04}，在本文我们只评测了这两种距离法。
+评测中，邻接法用NJTREE软件构建，最小进化树以基于GME框架的FASTME软件构建。距离矩阵的计算用
+TREE-PUZZLE~\cite{schmidt02}完成。对核苷序列，我们使用了HKY~\cite{hasegawa85}模型。
+颠换/转换比(transition/transversion ratio)\footnote{转换指发生在purine (A or G)之间或pyimidine (C or T)之间的核苷替换；其它种类的替换都称为颠换。
+在生物上，转换比颠换更容易发生，并因而在对它们的建模上也有所区别。}从数据中估计；氨基酸序列用WAG~\cite{whelan01}模型。$\Gamma$分布被用来模拟
+位点间不同的进化速率，其形状因子$\alpha$固定于$1.0$。出于计算的方便，我们使用四个离散变量来近
+似连续的$\Gamma$分布~\cite{yang94}。TREE-PUZZLE将比对的空位(gap)看成缺失数据\footnote{似然法在计算距离时能将
+比对的空位(gap)看成缺失数据，这种处理更加可靠。}。由于TreeFam-1.x使用
+最简单的p-distance\footnote{P-distance也称做错配距离，它等于两条序列匹配区域上的错配位点的百分比。}(一种没有考虑
+重复突变(multi-substitution)\footnote{Multi-substitution指在同一位点发生多次突变。比如一千万年前核苷A变为G，但
+五百万年前G又变回A，这时即使目前在两条序列观测到两个A，我们也应该记两次突变。好的模型是能够考虑这个因素的。但是，
+如果两条序列分化很久远，最后的估计的方差就会很大并因而很不准确。}
+的距离)来构建邻接树，这种模型也被纳入这次评测。
+
+最大简约树(Maximum Parsimonious tree)由PHYLIP~\cite{felsenstein89}软件包中的{\bf dnapars}和{\bf protpars}来构建。
+如果程序输出多个同优的进化树，我们使用树合并算法将其结合。值得注意的是，{\bf dnapars}会构建
+出多分岔树。由于基因倍增/缺失推断(duplication/loss inference, DLI)算法和树合并(tree merge)算法都只能应用于二叉树，部分核苷水平上的简约树不用来分析。
+氨基酸简约树始终是二岔树。
+
+PHYML~\cite{guindon03}用于构建极大似然树。进化模型及参数与TREE-PUZZLE使用的相同，即是：核苷序列用
+HKY模型，氨基酸用WAG；位点间进化速率的差异用形状因子为1.0的$\Gamma$分布来模拟。为了检验离散$\Gamma$分布的
+有效性，我们将$\Gamma$分布分别近似为四个和两个离散变量；不使用$\Gamma$分布的模型也参与了评测，以检验
+$\Gamma$分布的有效性。
+需要注意的是，PHYML和TREE-PUZZLE在模型的实现上有微小的差异。当我们分别用这两个软件估算树的枝长时，这一点
+就很明显：如果我们不使用$\Gamma$分布，两个软件给出几乎相同的结果；但当我们引入$\Gamma$分布时，
+两个结果就会有差异。但是，由于PHYML只能用来构树而不能计算距离矩阵，而TREE-PUZZLE只能算矩阵而不能
+构建标准的极大似然树~\footnote{TREE-PUZZLE可以构建“四极近似”下的极大似然树。}，我们只能同时
+使用这两个软件而忽略这个微小的差别。
+
+两种由树合并算法生成的进化树也参与了评测。第一种树结合了从同义进化距离和非同义进化距离构建的两棵邻接树；第二种树结合了
+四棵单模型进化树：核苷模型和氨基酸模型的极大似然树，以及同义树与非同义树。对于树合并算法中的目标函数$f$ (方程\ref{equ:f-obj})，
+我们令$\alpha=100000$，$\beta=1000$以及$\gamma=1$。自展值(bootstrapping values)度规于0至100之间。在这种配置下，
+倍增次数少的总是优先考虑，只有当倍增相同时才比较丢失；自展值只有在前两者都相同时才起作用。
+由于极大似然法所需计算量很大，自展检验没有用于极大似然树。在极大似然树的内节点上我们强制令自展值为80。之所以
+赋以如此高的自展值是因为极大似然树通常比距离法准确~\cite{kuhner94}。
+在这里，自展值的作用最小的原因是单一的构树算法仍可能对错误的边给出较高的自展值；倍增数的作用大于缺失数是
+因为进化上倍增较少发生，而缺失较多尤其是在发生一次倍增之后。
+
+\section{测试数据集的构建}
+
+为这次评测我们构造了两个测试数据集：{\sf TestSet1}与{\sf TestSet2}。数据集{\sf TestSet1}包含
+1041个经过校正的基因家族。这些数据是在TreeFam-1阶段从{\tt NJ-AA-MM}自动树校正的，包括12个完全测序的物种：
+{\tt ARATH（拟南芥），SCHPO（酵母），YEAST（酵母），HUMAN（人），MOUSE（小鼠），RAT（大鼠），CHICK（鸡），
+BRARE（斑马鱼），FUGRU（河豚鱼），DROME（果蝇），CAEBR（线虫）}与{\tt CAEEL（秀丽线虫）}。
+数据集{\sf TestSet2}包含113个在TreeFam-2阶段校正的基因家族，增加了七个完全测序物种：
+{\tt PANTR（黑猩猩），CANFA（家狗），XENTR（青蛙），TETNG（河豚鱼），CIOIN，ANOGA（安蚊）}和{\tt APIME（蜜蜂）}。
+这113棵树是基于{\tt MERGE}树校正的。除了数量与自动方法的不同，{\sf TestSet2}倾向于包含容易校正的树，并且这些树
+复杂程度适中；与之相比，{\sf TestSet1}既包含一些很难正确校正的进化树，也包括一些在TreeFam早期阶段加入很简单的树。
+一般而言，{\sf TestSet2}更加可靠，尽管数量偏少。
+
+构建两个集合时，原始的氨基酸多序列比对都是直接从TreeFam数据库中获取。这些比对通过氨基酸与三连码(codon)的对应转换成
+核苷比对。未完全测序的物种也排除在外。我们使用NJTREE来截掉比对较差的部分和屏蔽低分片段。
+Thompson等人\cite{thompson97}的文章给出了详细算法。
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=0.49\textwidth]{leaf-ts1}
+\includegraphics[width=0.49\textwidth]{leaf-ts2}
+\end{center}
+\caption{测试集的叶节点数分布}\label{fig:leaf-dist}
+\end{figure}
+
+\section{评价标准}
+我们用两个指标来衡量建树的准确性。首先，将每一棵自动树分别与校正树相比，它们之间的拓扑距离(Robinson-Foulds距离，第1.4.2节)$d_T$~\cite{robinson81}定义为两棵树间
+只存在于一棵树的内部分枝(不连接叶结点的边)的个数\cite{kuhner94}。Robinson-Foulds距离$d_T$可以用于无根多分叉树。如果被比较的两棵树完全相同，
+它的值为0，如果完全不同$d_T$达到最大值$2n-6$。这里$n$是其中一棵树的叶节点数。基于Robinson-Foulds距离，我们可以
+进一步定义两种方法$M_1$与$M_2$间的距离：
+\begin{equation}
+d_M(M_1,M_2)=\frac{\sum_{i=1}^m{d_T^i(M_1,M_2)}}{\sum_{i=1}^m{2n_i-6}}
+\end{equation}
+这里$m$是参与评测的基因家族总数，$d_T^i(M_1,M_2)$为基于第$i$个家族两个算法构建的进化树或自动树与校正树之间的拓扑距离，而$n_i$是
+相应的序列数目。算法距离$d_M$始终介于0到1之间，$1-d_M$代表了能同时被两种算法重构的内部分支的比例。重新度规后，
+$d_M$也可以在不同数据集之间进行比较。
+
+校正树是基于自动树构建的，它的正确性不可避免的会受到起初的自动方法的影响。
+同时，校正是一个主观过程，校正者的经验与状态或多或少会影响校正树的客观性。
+为了客观的评价各种自动构树算法，我们使用“百分倍增(percent duplication)”$p_D$和“平均缺失(average loss)”$p_L$来衡量
+准确性：
+\begin{eqnarray}
+p_D(M) &=& \frac{\sum_{i=1}^m{D^*_i(M)}}{\sum_{i=1}^m{n_i-1}} \\
+p_L(M) &=& \frac{\sum_{i=1}^m{L^*_i(M)}}{\sum_{i=1}^m{n_i-1}} 
+\end{eqnarray}
+其中$D^*_i(M)$是给定方法$M$建的树发生基因倍增事件的总数，而$L^*_i(M)$是基因缺失事件数。如果我们
+接受进化倾向于较少的倍增/丢失事件的假设，好的方法的$p_D$和$p_L$一定较低。尽管在特定情况下这个假设
+并不总是成立，但整体的趋势应该是存在的。
+
+这两个数据集只代表了一小部分真核基因家族。为了研究结果的稳定性，对{\sf TestSet2}我们设计了一个自展过程以对$p_D$, $p_L$和$d_M$计算标准偏差(standard deviation)：
+首先，113个基因家族被重抽样$B$次，每次带放回的抽取113个家族；对第$i$次重抽样，我们计算评测指标$r_i$。
+评测指标$r$的均值$\mu_r$和标准偏差$\sigma_r$则估计为：
+\begin{eqnarray*}
+\mu_r&=&\frac{\sum_i r_i}{B}\\
+\sigma_r&=&\sqrt{\frac{\sum_i{r^2_i}-B\mu_r^2}{B-1}}
+\end{eqnarray*}
+由于多数情况下$\mu_r$几乎等同于从原始数据中估计出来的$r$，在下表中将不再显示。对{\sf TestSet1}我们也可以
+同样计算，但由于$\sigma_r$在两个集合上结果相似，简单起见，我们也不再给出了。
+
+\section{构树的准确性}
+
+\begin{table}[!hb]
+\begin{center}
+\caption[建树算法及模型的评测结果]{建树算法及模型的评测结果。在这张表中，
+	$d_M$是校正树{\tt CUR}和其它树的拓扑距离，$p_D$是百分倍增(percent duplication)而$p_L$是
+	平均缺失(average loss)。标准偏差$\sigma$是从对{\sf TestSet2}的1000次重抽样而计算得到的。
+	由于{\tt PARS-NT}含有多分岔结点，$p_D$和$p_L$不能从这棵树计算。对$p_L$，两个测试集间的
+	Pearson相关系数为0.970，对$p_D$为0.965。}\label{tab:perform}
+\begin{tabular}{|l|cc|cc|cc|ccc|}
+\hline
+                 &\multicolumn{6}{|c|}{\sf TestSet2}             &\multicolumn{3}{|c|}{\sf TestSet1}\\
+\hline
+Type             &$d_M$ &$\sigma$&$p_D$ &$\sigma$&$p_L$ &$\sigma$&$d_M$  &$p_D$  &$p_L$  \\
+\hline
+{\tt CUR}        & 0.000 & 0.000 & 0.249 & 0.017 & 0.388 & 0.029 & 0.000 & 0.175 & 0.494 \\
+\hline                                                                                   
+{\tt NJ-NT-HKY4} & 0.225 & 0.017 & 0.313 & 0.017 & 0.786 & 0.042 & 0.133 & 0.204 & 0.630 \\
+{\tt NJ-AA-WAG4} & 0.256 & 0.016 & 0.322 & 0.016 & 0.901 & 0.050 & 0.154 & 0.220 & 0.756 \\
+{\tt NJ-NT-dN}   & 0.201 & 0.011 & 0.308 & 0.015 & 0.796 & 0.040 & 0.135 & 0.211 & 0.714 \\
+{\tt NJ-NT-dS}   & 0.527 & 0.017 & 0.431 & 0.014 & 1.761 & 0.041 & 0.464 & 0.345 & 1.561 \\
+{\tt NJ-AA-MM}   & 0.225 & 0.012 & 0.308 & 0.016 & 0.823 & 0.042 & 0.137 & 0.213 & 0.740 \\
+{\tt NJ-AA-Kmr}  & 0.275 & 0.018 & 0.333 & 0.017 & 0.988 & 0.065 & 0.165 & 0.226 & 0.790 \\
+{\tt ME-NT-HKY4} & 0.200 & 0.015 & 0.307 & 0.017 & 0.720 & 0.035 & 0.131 & 0.202 & 0.620 \\
+{\tt ME-AA-WAG4} & 0.232 & 0.014 & 0.317 & 0.017 & 0.858 & 0.047 & 0.151 & 0.217 & 0.744 \\
+\hline
+{\tt PARS-NT}    & 0.203 & 0.013 & -     & -     & -     & -     & 0.151 & -     & -     \\
+{\tt PARS-AA}    & 0.181 & 0.013 & 0.286 & 0.016 & 0.614 & 0.035 & 0.150 & 0.207 & 0.684 \\
+\hline
+{\tt ML-NT-HKY4} & 0.152 & 0.017 & 0.300 & 0.016 & 0.676 & 0.041 & 0.145 & 0.206 & 0.636 \\
+{\tt ML-NT-HKY2} & 0.147 & 0.018 & 0.301 & 0.017 & 0.677 & 0.041 & 0.143 & 0.206 & 0.639 \\
+{\tt ML-NT-HKY1} & 0.172 & 0.017 & 0.306 & 0.016 & 0.693 & 0.038 & 0.143 & 0.208 & 0.647 \\
+{\tt ML-AA-WAG4} & 0.185 & 0.015 & 0.299 & 0.016 & 0.705 & 0.044 & 0.159 & 0.213 & 0.709 \\
+\hline
+{\tt NJ-NT-dM}   & 0.165 & 0.011 & 0.291 & 0.016 & 0.687 & 0.037 & 0.121 & 0.195 & 0.622 \\
+{\tt MERGE}      & 0.092 & 0.015 & 0.259 & 0.016 & 0.457 & 0.033 & 0.111 & 0.178 & 0.503 \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+表\ref{tab:perform}给出了不同算法与模型在两个测试数据集上的表现。总体上，各个指标相对稳定，
+这可以从较小的标准偏差上看出来。但由于{\sf TestSet1}和{\sf TestSet2}在构造时就是有偏的，
+这两个集合表现出了不同的性质，发生基因倍增的内节点比例$p_D$与平均基因缺失$p_L$明显不同。
+尽管数据集存在差异，各种方法之间的比较相对稳定。对$p_D$指标，两个集合的Pearson相关系数为0.965，$p_L$
+的为0.970。这即是说如果算法$M_1$在{\sf Testet1}上表现比$M_2$好，则$M_1$也倾向于在{\sf TestSet2}上
+表现更好。
+
+从到校正树{\tt CUR}的拓扑距离$d_M$上判断，合并树{\tt MERGE}比其它方法表现的更出色。
+在测试集{\sf TestSet2}上，这可能因为{\tt CUR}是从{\tt MERGE}树校正过来的，但这种解释
+不能说明{\tt MERGE}在{\sf TestSet1}上的表现。在{\sf TestSet1}上，校正是基于{\tt NJ-AA-MM}的。这说明
+生物学家即使从不太准确的树出发也倾向于校正出一棵接近{\tt MERGE}的树。这说明树合并算法可以捕捉
+部分生物学家的思维。
+
+从发生基因倍增的几率$p_D$和平均缺失的个数$p_L$上，{\tt MERGE}也有好的表现。从{\tt MERGE}推断出的这两个数值
+显著小于基于其它方法的推断。树合并算法的作用也表现在{\tt NJ-NT-dM}。这棵树是由两个相对简单的距离法构造的树{\tt NJ-NT-dN}
+和{\tt NJ-NT-dS}合并的，但它表现出了同极大似然法相近的准确性，甚至在某些标准上超过了极大似然树。
+
+就单一模型的算法而言，氨基酸序列的简约法和极大似然法总体上超过了距离法，但在{\sf TestSet1}上{\tt ME-NT-HKY4}有着
+更好的表现。虽然在{\sf TestSet2}上{\tt PARS-AA}是最出色的，但由于树合并算法也用于{\tt PARS-AA}树的构造，
+这种好的表现应该多少归功于树合并算法。在$\Gamma$分布的应用上，{\tt PHYML-NT-HKY4}的确好于{\tt PHYML-NT-HKY1}，
+但优势并不十分明显。
+
+至于距离法，核苷HKY模型一致的超过了氨基酸模型。FASTME也优于相应的标准邻接法，这与Desper和Gascuel~\cite{desper04}的
+结论是相一致的。值得注意的是，在氨基酸水平使用复杂模型往往比简单模型差。同样的现象也在Hollich等人的工作中发现~\cite{hollich05}。
+
+图~\ref{fig:phy-tree}给出了建树算法的关系图。同一类算法明显带有相似的印记：从氨基酸序列建的树和
+核苷酸序列的被分成两组；距离法生成的树聚在一起；最小进化与标准邻接法的关系也十分紧密。相似的算法
+有共同的特性，这一点也暗示了更多类型的备选树更有助于发挥树合并算法的效果；否则同一类算法的不足很难避免。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics[width=\textwidth]{tree-0}\\
+\includegraphics[width=\textwidth]{tree-1}
+\caption[不同建树算法间的关系]
+{不同建树算法间的关系。上面的树从{\sf TestSet2}构建，下面的从{\sf TestSet1}构建。
+叶结点名字后的第一个数字为百分倍增(percent duplication)$p_D$，第二个为平均缺失(average loss)$p_L$。
+建树过程描述如下：首先计算各种建树算法及模型之间的两两距离，所得结果距离矩阵交给NJTREE用
+标准的邻接法(neighbour-joining)建树。我们使用了上文介绍的自展过程以检验稳定性，最后100棵
+自展树用{\bf PHYLIP}包中的{\bf CONSENSE}程序结合到一起，这给出了分枝旁边给出的自展支持值。}\label{fig:phy-tree}
+\end{center}
+\end{figure}
+
+\section{讨论}
+测试集的特性会影响建树算法的表现，这些特性包括：序列的分歧度、一个多序列比对中的序列数、
+比对的长度和不同位点变异速率的差异，并已经在许多评测中表现出来~\cite{kuhner94,hall05,hollich05}。
+我们的测试集基于TreeFam构建的真实数据。由于集合相对较小，收集的序列范围固定，我们还无法
+研究各种算法在其它特定条件下的表现，但在多细胞真核动物基因树的重构上，相信我们的评测更具实际意义。
+
+在这次评测中，树合并算法表现出色，它的确能捕捉到生物学家在校正时所用到的信息。当物种进化关系
+确定时，树合并算法可以明显提高构树的准确性。该算法的成功也表明每一类单模型算法都能
+构建出一些其它类算法不能构建的拓扑；否则的话一定会有一类算法明显接近{\tt MERGE}的精度。
+由于没有单模型算法能一致的超越所有其它算法，树合并是不能被单一算法所取代的。
+
+另一方面，树合并算法需要利用基因倍增/缺失事件，而这种信息只有从物种进化相对确定的高等真核生物中获取。该算法不能
+用于构建物种树；由于水平基因迁移的存在也不能用于构建细菌的基因树。构建物种树和细菌的基因树时单模型的传统
+算法是唯一的方案。我们的评测表明各种算法都有利弊。尽管简约树和极大似然树整体上较好，距离法仍可能
+在一些情况下表现的更出色。即使树合并算法无法使用，综合各类算法的结果总是成功建树的保证。
+
+
+}

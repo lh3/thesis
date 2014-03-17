@@ -1,0 +1,206 @@
+{\xiaosi
+
+\chapter{TreeFam数据库的建立} \label{chap:treefam}
+
+从进化的角度说一个基因家族中的基因是相互关联的。为了在物种间传递基因注释的信息以及为了研究基因进化的规律，
+分析一个基因家族中基因的进化关系是至关重要的，而实现这一目的的最好方法是构建这个基因家族
+的进化树。进化树不仅给出了进化的每一细节，也为进一步的功能推断提供了基础。TreeFam~\cite{li06}
+(Tree families database)是关于基因家族进化树的数据库。它的目的在于开发经过人工校正的资源
+以准确给出所有多细胞动物基因家族的进化历史以及基于进化树的各种推断。
+在这一章我们将介绍TreeFam数据库的内容和结构以及构建TreeFam的自动流程。
+
+\section{TreeFam概览}
+
+\subsection{什么是TreeFam}
+首先TreeFam是一个分类数据库。它把基因分成基因家族并为每一个家族和重要的子家族命名。
+以往的分类数据库，如KOG~\cite{tatusov03}, PANTHER~\cite{mi05}和SYSTERS~\cite{meinel05}，
+都是通过序列之间的相似度来划分基因，但TreeFam则不然。它把一个基因家族定义成从多细胞动物
+共同祖先中的一个基因，或者从第一次出现在多细胞动物中的一个基因演化出来的一群基因。
+事实上，以相似性分数为表现的进化速率在不同的基因之间是有很大差异的，基于相似性
+定义的基因家族不可避免的会对聚类阶段所使用的阈值非常敏感，这种定义也缺乏生物上的意义。
+相比之下，TreeFam不会遇到这样的问题。正如PhIGs数据库~\cite{dehal05}所指出的，像TreeFam这样从
+进化角度定义的数据库不会对阈值敏感，更加稳定，也更具生物意义。
+
+其次，TreeFam是直系同源基因(ortholog)的数据库。它从基因家族的进化树上推断直系同源基因。
+传统方法是从成对物种基因序列的比对来推断直系同源基因，大部分同源基因数据库都是基于这种方法，包括：
+NCBI的HomoloGene~\cite{wheeler05}，Ensembl-compara~\cite{hubbard05}， OrthoMCL~\cite{li03}和Inparanoid~\cite{o'brien05}。
+尽管这些数据库对同源基因的推断起到了积极作用，但当基因缺失发生时，它们就会出现问题。
+这是由于成对推断时没有看到其它物种，成对方法都会漏掉一些倍增事件而预测出更多的直系同源基因。
+更为严重的是，成对方法在不同物种对上的推断可能是相矛盾的。举个例子。假设基因$g_1$和$g_2$以及$g_2$和$g_3$分
+别是两对是一一直系同源(1:1 ortholog)，则$g_1$和$g_3$理论上也应是一一直系同源。但用成对推断的方法，$g_1$和
+$g_3$可能被推断成不是1:1直系同源，这是因为三对基因$(g_1,g_2)$、$(g_2,g_3)$和$(g_3,g_1)$是分别处理的，
+成对方法不要求它们之间是自洽的。相比之下，由于基于进化树的方法将许多物种看成一个整体，这些问题
+就不会存在了。据我们所知，除了TreeFam目前只有HOGENOM~\cite{dufayard05}从进化树上推断直系同源基因。
+
+最后，TreeFam是一个经过人工校正的数据库。实际数据反复说明在不同种系和不同基因家族间的进化规律是不同的。
+准确的自动建树始终是生物信息领域最具挑战的课题之一。这也是为什么生物学家即使知道基于进化树推断
+的优点也不得不退而求其次使用成对方法的原因。尽管TreeFam开发了新的算法以为提高建树的准确性，
+自动建树还是不能与人工校正相比──只有人能够成功的结合多方面的信息，也只有人能够赋予进化树以
+生物学的意义。TreeFam特殊之处在于它是经过人工校正的。
+
+\subsection{TreeFam的基本结构}
+
+TreeFam的基本结构很像Pfam\cite{bateman04}──一个人工校正的蛋白质结构域(protein domain)数据库。像Pfam一样，TreeFam也包含
+两个部分：经过人工校正的TreeFam-A，和自动生成的TreeFam-B；每一部分都包括两种类型的序列：
+经过人工校正或从PhIGs来的种子序列(seed)，以及在种子序列中加入新序列而形成的全序列(full)。
+图~\ref{fig:flowchart}(A)给出了这些概念之间的联系。具体的细节将在下面介绍。
+
+\begin{figure}
+\includegraphics[width=\textwidth]{flowchart}
+\caption[TreeFam的流程图]{TreeFam的流程图。(A) 整体结构。TreeFam-B中的种子序列(seed)来自于PhIGs数据库。
+  这些种子通过(B)中描绘的过程而扩展为完整序列(full)。人工校正将TreeFam-B的基因家族校正为TreeFam-A，而TreeFam-A的
+  基因家族也可以在日后重新校正。
+  (B) 种子扩展到完整的过程。虚线和灰色前景的文字表示这些过程只存在于早期的TreeFam-1.x，而灰色背景的方框表示相关部分的
+  在TreeFam-2中有所改变。要注意的是，完整的种子扩展到完整的过程只用于序列升级的情况。当TreeFam-B校正为TreeFam-A时，
+  新的TreeFam-A的种子由手工生成，完整序列直接取自TreeFam-B。
+  (C) 人工校正概览。这个过程涉及阅读文献的支持和一些TreeFam特有工具的使用。}\label{fig:flowchart}
+\end{figure}
+
+\section{输入数据}
+\subsection{序列集}
+
+TreeFam-2包含从GenBank~\cite{wheeler05}、SGD~\cite{balakrishnan05}、WormBase~\cite{chen05}、
+GeneDB~\cite{hertzfowler04}和Ensembl~\cite{hubbard05}等数据库中下载的19个已测序物种的核苷和蛋白序列(表\ref{tab:species})。
+如果数据库提供基因在基因组中的坐标和相应的蛋白质结构域，这些数据也将加入TreeFam。在本章，TreeFam序列集将简称为TFSEQ。
+
+在19个物种中，两种酵母和拟南芥({\it A.thaliana})都作为外群(outgroup)。在基因树中，外群基因能显示出早于多细胞动物
+最近共同祖先的更古老物种，它们用于判断是否两组动物基因应该分到两个TreeFam基因家族中而不是一个。
+可以说，外群的加入界定了基因家族的范围。
+
+\begin{table}[!hb]
+\begin{center}
+\caption[TreeFam-2中包含的所有完整测序物种]{TreeFam-2中包含的所有完整测序物种。两种酵母({\it S.pombe}和{\it S.cerevisiae})及
+拟南芥({\it A.thaliana})作为外群。}~\label{tab:species}
+{\tt
+\begin{tabular}{|r|l|l|l|}
+\hline
+Tax ID & Tax Name & {\it abbr.}	& Common Name\\
+\hline
+9606	& {\it Homo sapiens}				& HUMAN & Human\\
+9598	& {\it Pan troglodytes}				& PANTR & Chimpanzee\\
+10090	& {\it Mus musculus}				& MOUSE & Mouse\\
+10116	& {\it Rattus norvegicus}			& RAT 	& Rat\\
+9615	& {\it Canis familiaris}			& CANFA & Dog\\
+9031	& {\it Gallus gallus}				& CHICK & Chicken\\
+8364	& {\it Xenopus tropicalis}		& XENTR & Western clawed frog\\
+31033	& {\it Fugu rubripes}			& FUGRU & Japanese pufferfish\\
+99883	& {\it Tetraodon nigroviridis}	& TETNG & Green puffer\\
+7955	& {\it Danio rerio}				& BRARE & Zebrafish\\
+7719	& {\it Ciona intestinalis}		& CIOIN & \\
+7227	& {\it Drosophila melanogaster}	& DROME & Fruit fly\\
+7165	& {\it Anopheles gambiae}		& ANOGA & African malaria mosquito\\
+7460	& {\it Apis mellifera}			& APIME & Honeybee\\
+6239	& {\it Caenorhabditis elegans}	& CAEEL & \\
+6238	& {\it Caenorhabditis briggsae}	& CAEBR & \\
+4896	& {\it Schizosaccharomyces pombe}	& SCHPO & Fission yeast\\
+4932	& {\it Saccharomyces cerevisiae}	& YEAST & Baker's yeast\\
+3702	& {\it Arabidopsis thaliana}		& ARATH & Mouse-ear cress\\
+\hline
+\end{tabular}
+}
+\end{center}
+\end{table}
+
+\subsection{种子序列集}
+
+整个TreeFam自动流程的起点是TreeFam-B种子集合的建立，这必须通过聚类算法。幸运的是PhIGs已经
+按照我们期望的方式将所有动物的蛋白进行了聚类。在PhIGs数据库中，每一个类中的基因都是从一些指定物种的共同祖先
+一个基因进化而来的；基因由于进化关系而不是之间的相似度而聚类在一起。目前PhIGs网站提供两种聚类：
+一种是对所有脊椎动物的基因聚类，一种是对所有多细胞动物的聚类。理想状况下，第二种聚类下的
+一个类正好对应于一个TreeFam的基因家族。鉴于此，TreeFam跳过了聚类这一步而直接用PhIGs的类作为
+TreeFam-B的种子。
+
+\subsection{其它数据}
+
+一棵进化树不仅仅提供了基因家族进化的历史，它也为进一步的进化研究提供了基础，比如：内含子(intron)进化，
+蛋白结构域进化及基因功能改变的研究。为了辅助这些研究我们争取将其它相关信息加入TreeFam。自TreeFam-2起，
+我们已经加入剪切和结构域信息，在TreeFam-3中我们将进一步提供表达信息。基因敲除的表型结果和GO注释(GO ontology~\cite{ashburner00})
+也有可能加入进来。
+
+\section{TreeFam自动流程}
+
+TreeFam-2所使用的自动流程和TreeFam-1.x是不同的。这种不同体现在两点：PhIGs的重聚类和“竞争”方法的使用。
+
+\subsection{TreeFam-B种子集的生成}
+
+在TreeFam-1.x中，我们直接用PhIGs含有三个或更多动物基因的类来作为TreeFam-B的种子。然而，由于PhIGs
+在聚类阶段似乎使用了很严的标准，当家族的成员进化很快时，它有时会把一个基因家族分成若干小类，这样
+PhIGs的聚类经常偏小，是某个动物基因家族的子家族；只有几个聚类的并集才代表整个家族。
+在校正过程中这种现象时有发生，这也促使我们考虑在TreeFam-2中在PhIGs的基础上重新聚类。
+
+在TreeFam-2中，PhIGs中的类按如下方式聚类。首先，原始的聚类中的序列用BLAST\footnote{BLAST (Basic Local Alignment Search Tool) 是用于
+搜索同源序列的最受欢迎的程序。它将一条序列和一个序列集中的每一条序列进行比对，计算比对分数，并用以一条随机序列
+与同样大小的随机库比对时出现比观测分数更高的序列数的数学期望(E-value)来衡量同源的显著性。
+}~\cite{altschul97}与TreeFam序列集TFSEQ相比较，
+期望值(E-value)的阈值设在$0.01$。比对上的TFSEQ再用HMMER\footnote{HMMER也是进行同源比对的工具。它用隐马尔科夫模型(Hidden Markov Model, HMM)
+为多序列比对建模(alignment profile)，并使用建好的模型来衡量其它序列是否和给定多序列比对相匹配。
+由于HMMER使用了多条序列，HMMER一般比使用成对比对的BLAST更加敏感也更准确。但它的速度较慢。}~\cite{eddy98}再进行一遍比对搜索，期望值设在$0.1$；
+其中HMMER的模型参数是从
+由MUSCLE\footnote{MUSCLE是像Clustalw一样的多序列比对程序。它把一组序列比对到一起以使它们共有的同源区域
+得以匹配。一般来说，MUSLCE比Clustalw更快也更准确。}~\cite{edgar04}对原始PhIGs类中的序列进行的多序列的
+比对构建的。接着我们从HMMER的结果中构建一个关系图，
+在这个图中，每一个结点(vertex)对应着一个原始的PhIGs类，每一条加权边(weighted edge)代表着两个类包含有共同的
+动物基因。更准确地说，给定一个PhIGs类$u$，令$R_u$是能和$u$中序列匹配并且HMMER分数超过所有匹配外群基因的动物基因的集合(TFSEQ的子集)，
+如果$R_u\cap R_v\not=\emptyset$成立则在$u$与$v$之间加上一条边，这条边的权重为$\frac{|R_u\cap R_v|}{\min\{|R_u|,|R_v|\}}$。
+建好这个加权图之后，我们就可以用各种基于图论的聚类算法来进行聚类。在TreeFam-2中，我们实现了一个在Zdobnov等人~\cite{zdobnov02}
+的算法基础上改进的一个半经验算法(heuristic algorithm)，这个算法和大多数同类算法一样试图找到内部联系紧密而不与其它类有联系的一个个
+集团~\footnote{事实上，MCL算法~\cite{enright02}也许更加合适。}。最后，聚在一起的PhIGs类被合并在一起作为新的
+种子。原则上这种聚类的过程可以反复进行直到结果稳定为止；但事实上我们发现两轮
+或更多的轮的聚类会导致较多的包含几个动物基因家族的超家族(superfamily)，这可能是因为当更多的序列混起来之后HMMER会变得不够敏感。
+因此我们只对PhIGs进行了一次聚类，其结果被直接用来作为种子。
+
+\subsection{竞争性的分配序列到家族}
+在TreeFam-1中，家族成员是靠树剪枝(tree-cutting)算法来决定的。这种算法将从多细胞动物共同祖先另一个基因
+进化出来的同源基因(homolog)从树上删除。理想状况下，这种做法正是我们所期望的。但是在实际应用中，
+由于远源基因更容易丢掉以及建树算法在长枝上更容易发生误差，这个算法经常出错而使得一个TreeFam家族包含许多
+本不该属于这个家族的序列。这样在TreeFam-1.x中一个基因可以同时属于几个甚至几十个家族，这本身就是不自洽的，更给
+人工校正带来了许多麻烦。另外，由于比对和进化树是在许多不必要序列排除之前建立的，包含超过500条序列的庞大的比对
+经常可以见到，这极大加重了运算的负担。因此，我们决定在TreeFam-2中开发更好的方案。
+
+在TreeFam-2中，同源基因(homolog)的搜索还是靠结合BLAST和HMMER来完成的，即先用BLAST初筛再用从MUSCLE比对建立的HMMER来
+精细挑选。在这步之后，每一条序列被强行分配到HMMER分数最大的那个家族中；而且如果一个家族包含一个基因的
+不同的可变剪切形式，只有HMMER分数最高的那个剪切形式被保留下来。在这这一步后每一个基因家族的成员已经确定了。
+
+根据我们的实际观察，如果种子序列的质量很好HMMER方法的确很准确而有效，大多数动物基因，尤其是脊椎动物
+基因可以很准确的分配到基因家族中。但当种子只含有几条序列或比对结果很差时，HMMER的分数不再精确并可能导致
+错误。并且，无同源基因(orphan gene)和种子集的不完整性也会影响到结果：即使一个基因不属于任何已有TreeFam家族，
+它还是会被强行的分配，而不管BLAST和HMMER的分数有多低。在下一个版本中，我们会对这些问题予以更多的关注。
+
+\subsection{升级信息的跟踪}
+
+TreeFam将人工校正的信息存于TreeFam-A的种子树。然而随着序列集的升级，同一个基因的识别符(identifier)可能会改变
+从而在旧版本种子树(seed tree)失去踪迹。这时部分校正信息就会缺失，而如果这种信息的缺失持续发生，
+人工校正的努力将付诸东流。减缓这种信息流失的速度对TreeFam这样的人工校正数据库至关重要。
+
+TreeFam-2中我们在分配家族的序列之后设计了一个专门的流程来跟踪两个版本间不同的基因命名。其基本的想法是，新的命名
+可以和旧的相匹配应该满足三个条件\footnote{这一策略在新的TreeFam-3中会有所改变。}：(i) 两条序列来自同一物种；
+(ii) 它们在相匹配的编码区几乎相同；(iii) 没有
+其它和两条中的任一条更近的其它序列。条件(i)和(ii)可以很容易的直接判断，而第三个可以从新旧版本基因混合
+而建的树中看到。在这棵树中如果新旧两个版本的基因有共同的父结点则它们可判断为同一条基因。图~\ref{fig:exam-traceid}
+给出了例子。
+
+\begin{figure}[!hb]
+\includegraphics[width=\textwidth]{traceid}
+\caption[用于解释基因标识跟踪的一个例子]{用于解释基因标识跟踪的一个例子。这棵树既包括两个版本间没有发生标识(identifier)改变的序列(灰色字体)，
+也包括发生标识改变的序列(黑色字体)。只在新版本中存在的序列用斜体显示。这棵树中，序列{\tt CCNI-old\_PANTR}和{\tt *CCNI-wrong\_PANTR}
+不应是同一条，这是因为{\tt CCNI\_HUMAN}更加靠近前者；序列{\tt CCNI-old\_CHICK}与{\tt *CCNI-wrong\_CHICK}不应为同一条，
+因为它们之间的距离太长；只有小鼠的两个基因在新旧版本是同一个基因。}\label{fig:exam-traceid}
+\end{figure}
+
+\subsection{进化树的构建}
+
+由于竞争法的应用，TreeFam-2的每一个家族在建树前不再包含无关的远源序列。和TreeFam-1.x相比，建树时所用的序列量要小得多，
+这也使得使用像极大似然法这种更加准确却更慢的算法成为可能。另外，我们在新版本中也更加频繁的使用树合并算法，
+这也有助于提高建树的准确性。
+
+在新的TreeFam-B中，完整树是由同义邻接树(synonymous neighbour-joining tree，使用同义突变(synonymous mutation)
+距离构建距离矩阵用邻接法(neighbour-joining)建的树)
+和非同义邻接树(nonsynoymous neighbour-joining tree)通过树合并算法而得到的。
+在TreeFam-A中，构建完整树时还要以人工校正的种子树作为约束。至此，自动流程结束。
+
+为了获得更准确的自动建树，我们还尝试对同义邻接树，非同义邻接树，
+蛋白模型下的极大似然树(maximum-likelihood tree)和核苷极大似然树应用树合并算法(第五章)建树。
+无论是第六章的评测还是人工校正的过程中的观察
+都表明这棵合并树的确超过了其它的算法。合并树将在TreeFam-3中发挥更大的作用。
+
+}

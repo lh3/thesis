@@ -1,0 +1,273 @@
+{\xiaosi
+
+\chapter{背景介绍}
+
+系统进化学(phylogenetics)是研究一群物种或基因进化关系(phylogenies)的一门科学~\cite{baldauf03}。它的一个最基本的假设
+是地球上所有物种都有一个共同祖先(common ancestor)，并从这个祖先开始以树状发展。这个假设源自达尔文(Darwin)，并为
+之后众多的分子生物学证据所证明~\cite{durbin98}。准确的构建生命之树(tree of life)一直是进化学家们的理想和奋斗目标。
+
+起先进化树是通过比较现有生物或化石的形态学特征来实现的。这种做法即使在现在也十分耗时并需要
+分类者有着充分的经验~\cite{cotton03}。自从在1965年Zuckerkandl和Pauling~\cite{zuckerkandl65}发表了他们划时代
+的文章来说明分子序列也可以作为进化特征来建树，分子系统进化学登上了科学的舞台，并随着测序技术的进步
+成为系统进化学发展最快而又最富有成果的一个分枝。它不仅为生物学家提供了大量有价值的分析结果，也
+促进了计算机科学和统计学的发展。
+
+\section{背景介绍}
+
+构建物种的生命之树是进化学的核心问题，而构建每一个基因家族的基因进化树则显示了分子进化学在分子生物学领域更实际的作用。
+基因家族的进化关系不仅给出了基因进化的历史，它也是基因注释的关键：当基因进化关系明确时，一个物种的注释或对一个物种基因
+的实验结果可以通过进化关系传递到另一个物种；这样，基因进化将不同物种的基因注释结果织成一个整体，这对
+现有的基因注释尤其是新测序物种的注释至关重要。同时，重构基因的进化关系是发现基因进化规则的前提，而
+这些规则又为进一步阐释基因功能提供了重要线索。举例来说，基因在不同时期受到的选择压力的不同暗示了基因功能
+的改变，而有意义的突变，假基因(pseudogene)和互作用网络都可以以进化树为辅助而得以推断\cite{ng03,coin04}。另外，恢复基因家族的进化关系
+也为包括内含子(intorn)进化和基因组复制等其它的进化分析铺平了道路。
+
+出于基因进化关系的重要性，许多数据库都给出了基因家族的进化史，它们包括
+KOG~\cite{tatusov03}, PANTHER~\cite{mi05}, SYSTERS~\cite{meinel05}
+PhIGs~\cite{dehal05}, Ensembl-compara~\cite{hubbard05}, OrthoMCL~\cite{li03}和HOGENOM~\cite{dufayard05}。
+这些数据库都为进化学的发展提供了重要参考，但它们也都面临同样一个问题：怎样重构准确的进化树？
+而这个问题却是生物信息领域最困难的问题之一\cite{delsuc05}。序列质量较低(比如基因注释错误和序列较短)和
+不切实际的进化模型(比如假设基因在不同种系总以相同速率进化)都会影响建树的质量。没有一个自动算法能
+在各种情况下准确建树。为了使一个基因进化的数据库发挥更大的实用价值，这个问题必须得以解决。
+
+\section{论文概览}
+
+TreeFam是一个关于(基因)进化树的数据库，进化树是该数据库的主要单元。
+在开发TreeFam 的过程中，我们试图从两个方向解决建树的困难：首先，我们开发了一个新的算法以提高
+自动建树的质量；其次，我们实现了约束邻接法以在建树时使用人工校正的信息进一步提高建树的准确性。
+本文将详细描述这些算法，并且涵盖构建TreeFam数据库相关的大部分细节，包括：基本概念和原理、自动流程、
+其它各种算法以及实现。
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=0.7\textwidth]{chapflow}
+\caption{各章之间的关系图。}\label{fig:chapflow}
+\end{center}
+\end{figure}
+
+在本章剩下的小节中我们将阐明分子进化学上的生物概念和一些数学记号。第二章描述了TreeFam的结构及自动流程。
+第三章涵盖了在建树过程中许多相对较小而又很重要的方面，尤其注重讲述了TreeFam独特的两个算法：约束邻接法和叶结点重排算法。在第四章我们给出了
+对多分叉物种树进行倍增/缺失推断的算法，并将之纳入更一般的理论框架。第五章详细地给出了树合并算法，这也是
+TreeFam提高自动建树质量的主要算法。在第六章我们使用TreeFam中经过校正的树为测试集对各种建树算法进行了综合
+的评测，也是对自动构树算法的总结。图\ref{fig:chapflow}给出了各章之间的关系。
+
+除了本章，本论文大部分结论都未发表。即使在第二章，我们也对所发表的文章~\cite{li06}有了更进一步的阐释。
+我们期望在下面的几个月中将此论文中一些主要章节予以发表\footnote{此论文的中文版事实上是从英文版翻译过来的，即先有英文版而后才有中文翻译。
+由于本文所述内容较新，多无已有翻译为参照，因此许多术语的翻译可能不很得体，我们
+尽量给出相应的英文以供参考。另外，由于中文排版问题，索引和PDF格式中的连接只在英文版给出。}。
+
+\section{系统进化学基础}
+
+进化系统(phylogeny)指物种或基因之间在进化上的联系。这种关系可以表征为一棵树，称做进化树(phylogenetic tree)。
+系统进化学(phylogenetics)是研究进化系统的科学，是生物学的一个分枝。系统进化学主要研究
+如何从现有数据复原进化历史和影响进化的原因以及进化对生物的意义。
+
+\begin{figure}[!hb]
+\includegraphics[width=\textwidth]{spec}\\
+\includegraphics[width=\textwidth]{gtree}
+\caption[物种树和基因树的例子]{物种树和基因树的例子。上图为{\it Chordata}纲的一棵物种树，本文在其它章节也会使用这棵物种树。下图
+  为{\it Cyclin I}基因家族的基因树。内结点旁边的斜体字为包含相应祖先基因的祖先物种名。在这棵基因树中人的基因
+  {\sf CCNI\_human}和鸡的{\sf XP\_420590\_chicken}是1:1直系同源，因为
+  它们都是从人鸡共同祖先{\it Amniota}的一个基因进化而来。但这个人的基因和{\sf ENSGALT00000011124\_chicken}只是普通同源
+  而不是直系同源，这是因为尽管两个基因在{\it Euteleostomi}中是一个基因，它们在人鸡共同祖先{\it Aminota}中是两个基因({\sf GENE1}和{\sf GENE2})。
+  另外，这个基因树也给出了几个1:n直系同源的例子，比如，基因{\sf ENSCINT00000007140\_C.intestinalis}和河豚的两个基因
+  {\sf SINFRUT00000165765\_pufferfish}与{\sf SINFRUT00000148117\_pufferfish}是1:2直系同源。下面的基因树还会出现在第四章，在那里
+  会给出更多的细节。}\label{fig:spectree}
+\end{figure}
+
+在本文我们将涉及两种进化树：物种树(species tree)和基因树(gene tree)。严格的说，一个物种是“一群可以在内部杂交或交配而不能
+和其它物种杂交或交配的生物体的集合”\footnote{\href{http://www.edu.gov.nf.ca/curriculum/teched/resources/glos-biodiversity.html}
+{http://www.edu.gov.nf.ca/curriculum/teched/resources/glos-biodiversity.html}}，而
+物种树则是描绘物种间关系的进化树，它的每一个叶结点(leaf node, external node)都代表着如今可以观测到的现有物种(present species)，
+而它的每一个内结点(internal node)则代表在历史上存在的祖先物种(ancestral species)。一个祖先物种
+通常以分类名(taxon)来命名。比如，祖先物种{\it Eutheria}就是指分类名{\it Eutheria}所包括涵盖的全部
+物种的最近共同祖先物种。为生物体命名和分类的科学叫系统分类学(taxonomy)，它也是
+进化学的一个分枝\footnote{根据系统分类学，所有的物种都在六个主要层次上划分，按从大到小的顺序，它们是：
+kingdom、phylum、class、order、family和genus。以人为例，他/她属于下列分类：{\it Animalia} (kingdom),
+{\it Chordata} (phylum), {\it Mammalia} (class),
+{\it Primates} (order), {\it Hominidae} (family), {\it Homo} (genus), and {\it Homo sapiens} (species)。}。
+
+基因(gene)定义为一段有功能或表型的DNA片段，在没有确知功能时一个基因也可以以序列、转录体或存在同源关系来表征
+\footnote{\href{http://www.gene.ucl.ac.uk/nomenclature/guidelines.html}
+{http://www.gene.ucl.ac.uk/nomenclature/guidelines.html}}。基因在进化上是相互联系的。同源基因(homolog)是
+历史上从一个基因进化过来的一组基因~\cite{koonin05}；直系同源基因(ortholog)则是从两个物种的最近共同祖先(last common ancestor, LCA)的
+一个基因进化过来的一组基因~\cite{remm01}；如果一个物种的$m$个基因和另一物种的$n$个基因
+都从两个物种的LCA的一个基因进化而来，则称这$m+n$个基因为$m:n$直系同源(图\ref{fig:spectree})。
+从定义上看，直系同源基因是亲缘更近的同源基因；不是直系同源的同源基因称做旁系同源基因(paralog)。
+广义的说，一个基因家族(gene family)是从一个祖先基因进化而来的一组基因\footnote{TreeFam中使用基因家族
+这个概念时略有不同。见第\ref{chap:treefam}章。}。基因家族中基因的进化关系也可以以树的形式展示，
+这称做基因树(gene tree)。类似地，基因树的每一个叶结点代表着一个现有基因，而每一个内结点代表了仅在历史上存在的一个基因。
+
+物种树和基因树是相互联系的：物种树可以从基因树中推断，而基因树在某种程度上反映了物种的进化关系。
+同时，基因树也可能由于基因倍增(duplication)，缺失(loss)和水平基因迁移(lateral gene transfer, LGT)等
+进化事件而不同于物种树；这些事件也能靠基因树与物种树的树融合(tree reconciliation)过程再现。
+TreeFam数据库──也是本论文──一个与众不同之处是它大量依靠物种树和基因树之间的关系推断进化事件，并
+用这种关系来提高自动建树质量。
+
+\section{树的基本概念}
+
+在图论中，树是没有圈的连通图，它由结点(node or vertex)和连接结点的边(branch or edge)组成。一个结点可以是
+只连接一条边的外结点(external node)也可以是连接两条或更多边的内结点(internal node)。外结点也称为叶结点(leaf)。
+
+严格的说，每一棵进化树都是有根树(rooted tree)，代表着进化的方向性。它的根结点(root)代表着树中所有物种或基因的
+最早的共同祖先。在有根树中每一个内结点都有它的子结点(children or daughter)；除了根结点，每一个结点
+都有一个父结点(parent)。靠近树根的枝(结点)称为较高的枝(结点)，而靠近叶子的称做较低的枝(结点)。
+给定一个结点的集合，覆盖这些结点的最低结点称做最近共同祖先(last common ancestor, LCA)；这个集合中所有的结点
+都从它们的LCA结点演化出来。
+
+一棵真实的进化树也是一棵二岔树(binary tree)，它的每一个内结点有且仅有两个子结点。由于在二岔树中所有的
+分化都是清楚的，二岔树也称做一棵已决定树(resolved tree)。但是，如果两个连续的分化事件在历史上
+很短的时间内发生，它们在建树时是很难准确区分的，因此在实用中一个内结点也允许有三个或更多子结点，这样的结点
+称做多分岔点或未决定点(multifurcated node, unresolved node, or polytomy)，含有多分叉点的树称做
+多分叉树或未决定树(multifurcated tree or unresolved tree)。现在广泛使用的NCBI物种分类树~\cite{wheeler05}是
+一棵多分叉树。
+
+\subsection{树的表示}
+
+显示一棵树的最直观方法是将它画在纸上。但是，一个图形既不能直接用数学语言来描述也不能很方便的用
+计算机程序来处理，因此我们有必要将树以抽象的语言来描绘以详细阐述有关树的算法。
+
+在本文我们将使用三种树的表示方法：图表示(graph representation)，字符串表示(string representation)和
+集合表示(set representation)。前两种表示法将在下面介绍，而第三种将在第五章引入，在那一章，更加
+抽象的集合表示法更有助于严格地阐明算法和证明。
+
+\subsubsection{图表示：定义及记号}
+
+除了第五章我们会为了方便树合并算法的介绍而引入新的记号，这一小节的定义和记号将应用于整篇论文。
+如果我们认为地球上所有生物都只有一个共同祖先，所有进化树都是有根的。除了在个别章节我们特殊声明
+会考虑无根树，在本文绝大部分只考虑有根树。在第\ref{sec:root-tree}节我们会看到如何为无根树定根。
+
+\begin{figure}[!hb]
+\begin{center}
+\setlength{\unitlength}{0.7cm}
+\begin{picture}(18,6)
+% left
+\put(0,2){\line(1,1){4}}
+\put(2,2){\line(-1,1){1}}
+\put(4,2){\line(0,1){4}}
+\put(8,2){\line(-1,1){4}}
+\put(6,2){\line(1,1){1}}
+\put(-0.2,1.3){1}
+\put(1.8,1.3){2}
+\put(3.8,1.3){3}
+\put(5.8,1.3){4}
+\put(7.8,1.3){5}
+\put(1.5,2.8){6}
+\put(7.5,2.8){7}
+\put(4.5,5.8){8}
+\put(0,2){\circle{0.1}}
+\put(2,2){\circle{0.1}}
+\put(4,2){\circle{0.1}}
+\put(6,2){\circle{0.1}}
+\put(8,2){\circle{0.1}}
+\put(1,3){\circle{0.1}}
+\put(7,3){\circle{0.1}}
+\put(4,6){\circle{0.1}}
+% right
+\put(14,2){\line(0,1){4}}
+\put(18,2){\line(-1,1){4}}
+\put(9.8,1.3){1}
+\put(11.8,1.3){2}
+\put(13.8,1.3){3}
+\put(15.8,1.3){4}
+\put(17.8,1.3){5}
+\put(11.5,2.8){6}
+\put(17.5,2.8){7}
+\put(14.5,5.8){8}
+\put(10,2){\circle*{0.1}}
+\put(12,2){\circle*{0.1}}
+\put(14,2){\circle{0.1}}
+\put(16,2){\circle*{0.1}}
+\put(18,2){\circle{0.1}}
+\put(11,3){\circle*{0.1}}
+\put(17,3){\circle{0.1}}
+\put(14,6){\circle{0.1}}
+\put(3.8,0){$T$}
+\put(13.8,0){$T|_A$}
+\end{picture}
+\caption[用于解释基本概念的一个例子]{用于解释基本概念的一个例子。
+	在原始的树$T$中，$\lhlca(\{4,6\})=8$和$\omega(8)=\{1,2,3,4,5\}$成立。
+	如果$A=\{3,5\}$，则有显示在右边限制于$A$的子树$T|_A$，在这棵树中$V_E(T|_A)=\{3,5\}$以及$V_I(T|_A)=\{7,8\}$成立。
+    要注意的是在子树$T|_A$中，结点$7$只有一个子结点。树$T$可以用这样的一个New Hampshire字符串(见本小节)来表示：
+	{\tt ((1,2)6,3,(4,5)7)8}；
+	如果不计叶子顺序，也可以表示成{\tt ((5,4)7,(1,2)6,3)8}。它们是同一棵树。
+	类似地，$T|_A$的New Hampshire字串表示为：{\tt ((3,(5)7)8)}。}\label{fig:concept}
+\end{center}
+\end{figure}
+
+令$T$是一棵有根树，$V(T)$是它的结点集，$V_E(T)$是$T$的外结点或叶结点集，而$V_I(T)$为内结点集。
+给定一个结点$v$，它的子结点形成集合$\lhchild(v)\subset V(T)$，它的父结点为$\lhparent(v)\in V(T)$.
+
+对结点$u,v\in V(T)$，如果$u$由$v$进化而来我们则记$u<v$或$v>u$。结点$v$所覆盖的所有叶结点
+组成集合为：
+\begin{equation}\label{equ:omega}
+\omega_T(v)=\{u\in V_E(T):u\leq v\}.
+\end{equation}
+类似地，$A\subset V(T)$覆盖的叶结点的集合为：
+\begin{equation}
+\omega_T(A)=\bigcup_{u\in A}\omega_T(u).
+\end{equation}
+有时如果在上下文只出现一个树$T$，我们也将$\omega_T(v)$简记为$\omega(v)$。
+
+下面我们来看如何表示$T$的一棵子树。对一个结点的集合$A$，令$\lhlca(A)$为$A$的最近共同祖先。令$T|_A$为根在
+$\lhlca(A)$包含$T$中连接$\omega(A)$的路径组成的子树。这样子树$T|_A$的结点集为：
+\begin{equation}
+V(T|_A)=\{v\in V(T):\omega_T(v)\cap\omega_T(A)\neq\emptyset\}
+\end{equation}
+我们也简记$T|_{\{v\}}$为$T|_v$。图~\ref{fig:concept}给出了关于这些概念的一个具体例子。
+
+\subsubsection{树的字符串表示：New Hampshire格式}\label{sec:nhformat}
+
+New Hampshire (NH)，或Newick格式是标准的计算机可识别的树的表示方法。它使用相互嵌套的括号来表示
+树的结点关系，从而将树转化成一个字符串，称做NH字串(NH string)。
+
+NH格式十分简单而直观。图~\ref{fig:concept}也给出了一个例子。用正式的形式文法(formal grammar)\footnote{形式文法
+是计算机科学编译原理中对程序设计语言的常用表示方法。}，NH格式可以
+严格地写成如下形式：
+\begin{quote}
+{\tt
+\begin{tabular}{lcl}
+<tree>	&$\rightarrow$&<cell>;\\
+<cell>	&$\rightarrow$&<nhcell> | <nhcell>[<comment>]\\
+<nhcell>&$\rightarrow$&<node> | <node>:<dist>\\
+<node>	&$\rightarrow$&<id> | (<list>) | (<list>)<id>\\
+<list>	&$\rightarrow$&<cell> | <list> , <cell>\\
+\end{tabular}
+}
+\end{quote}
+这里{\tt<comment>}、{\tt<id>}和{\tt<dist>}分别表示注释、标识符和距离，它们完全可以用
+正则表达式(regular expression)来表示。事实上，TreeFam所使用的格式是扩展NH格式(New Hampshire eXtended, NHX)。
+这种格式将结点的其它信息以一种特定的``:键=值''的格式存于{\tt<comment>}中。NHX格式最早由
+Zmasek等人提出~\cite{zmasek012}。
+
+我们必须注意到同一棵树可以用许多不同的NH字串来表示，这些字串都代表同样的拓扑，它们的不同在于叶结点在字串中出现的
+顺序不同。在实用中我们习惯上按树画在纸上的图形中叶结点出现的顺序来写NH字串，比如对
+图\ref{fig:concept}中的树$T$我们习惯上将其表示为{\tt ((1,2)6,3,(4,5)7)8}而不是其它字串。从这一点上说，
+一个NH字串和一个树的图形有着自然的一一对应关系。
+
+如前一段所指出的，一棵树可以表现为不同的图形或不同的NH字串。尽管这些图形和字串都表示着同一棵树，但在人的眼中
+它们是很不相同的。给定两棵含有几百棵叶结点的大树，如果两棵树叶结点排列顺序不是很相似，直接在视觉上比较两棵树
+是极为困难的。设计一个以同一方式画树的算法十分必要。我们将在第三章解决这个问题。
+
+\subsection{无根树拓扑的比较}
+给定一个集合$V$，$V$的一个\emph{二分}为一对不相交的集合$A$和$B$，表示为$A|B$或$B|A$，它满足：(i) $A\cap B=\emptyset$并且(ii)
+$A\cup B=V$。令$T=(V(T),E(T))$是一棵\emph{无根树}，$V(T)$是它的结点集，$E(T)$是边集，则树$T$的每一条边
+都将$T$分成两个不相交的部分；如果我们令这两个部分所的叶结点的集合分别为$A$和$B$，则$A|B$是$V(T)$的一个二分。
+这样，$T$的每一条边都对应一个$V(T)$的二分$A|B$，因此我们可以定义：
+\begin{equation}
+\tilde{T}=\{A|B:\mbox{存在$T$的一条边对应于$V(T)$的二分$A|B$}\}
+\end{equation}
+显然$|\tilde{T}|=|E(T)|$成立。当$T$是二岔树时$|E(T)|$达到最大值$2\cdot|V(T)|-3$，$|\tilde{T}|$的最值也为$2\cdot|V(T)|-3$。
+在本文，如果我们说“边$A|B$在$T$中存在”，我们指$A|B\in\tilde{T}$，或者等价地，$T$中有一条边与
+$A|B$相对应。以图\ref{fig:concept}为例，边$(8,6)$对应的二分为：$\{1,2\}|\{3,4,5\}$。
+
+集合$\tilde{T}$引入后，有相同叶结点集的两棵树就可以进行比较了。
+令$T_1$和$T_2$是两棵无根树，并且$V(T_1)=V(T_2)$，衡量它们之间拓扑不同的
+Robinson-Fould距离\cite{robinson81}为：
+\begin{equation}
+d_T(T_1,T_2)=|(\tilde{T}_1\cup\tilde{T}_2)\setminus(\tilde{T}_1\cap\tilde{T}_2)|
+\end{equation}
+这个距离事实上等于存在与一棵树但不存在于另一棵的边的个数。要注意和叶结点相连的边总同时在两棵树中
+存在，因此$d_T$的最大值为$2\cdot(|V(T_1)|-3)$，它在当两棵二岔树$T_1$和$T_2$完全不同时达到。
+
+}

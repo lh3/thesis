@@ -1,0 +1,232 @@
+{\xiaosi
+
+\chapter{基因倍增和缺失的推断}\label{chap:dli}
+
+真核基因家族的的进化由三个因素决定：物种分化(speciation)、基因倍增(duplication)与基因缺失(loss)。首先，物种分化的同时也使
+基因分化到不同物种，每一个基因家族的历史都反映着物种进化的历史：当一个祖先物种(ancestral species)分化了，它所有的
+基因都会分化到它的后代并在后代中相对独立的发展。物种分化不能产生新的基因，但基因倍增为一个物种
+及其后代注入新的基因，从而提供可供自然选择的备选基因。当多余基因产生后，基因缺失接着抹掉对物种
+功能帮助不大的新基因。基因演化、产生和消亡，描绘了基因家族的进化史\footnote{水平基因迁移(Lateral Gene Transfer, or LGT)也是
+影响基因进化的因素之一，但是LGT经常发生于病毒或原核生物之间，而很少发生于高等多细胞生物~\cite{stanhope01,salzberg01,roelofs01,frickey04}}。
+图~\ref{fig:exa-dup-loss}给出了一个例子以说明倍增和缺失事件是怎样控制基因的进化的。
+如果我们接受树中给出的推断，那么这个基因家族进化的历史是这样的：最早的祖先物种{\it Chordata}只有一个基因；
+这个基因在进化到{\it Euteleostomi}时发生了一次复制；自此这个基因在{\it Euteleostomi}都有了两个拷贝；
+第一个拷贝在后续物种中正常进化，只在{\it mouse}中接连发生两次复制；另一个则在{\it Eutheria}发生了一次
+缺失。这就是这棵树所描绘的进化历程。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics[width=\textwidth]{gtree}
+\caption[基因进化的一个例子]
+{基因进化的一个例子。在内结点边上斜体的名字是包含祖先基因的祖先物种。倍增事件(三个粗体点)和
+缺失(灰色方框)是用本章下面介绍的方法推断的。}\label{fig:exa-dup-loss}
+\end{center}
+\end{figure}
+
+基因倍增和缺失是通过比较基因树和物种树得出来的，这一过程通常叫做“树融合”(tree reconciliation)。树融合
+最早由Goodman~\cite{goodman79}提出，之后由许多学者相继实现并提高~\cite{page94,guigo96,eulenstein98}。
+最近Zmasek和Eddy~\cite{zmasek01}给出了一个简洁优美的算法极大简化了树融合过程，而Dufayard等人又将之推广至
+物种树含有多分叉的情形，尽管他们没有交代细节。以上的各种算法都属于简约法，给定基因树与物种树它们总是作出倍增与
+缺失数最小的推断。最近，Arvestad等人~\cite{arvestad03}设计了Bayes算法来推断倍增与缺失，在两个例子上他们
+表明这种基于统计的算法可以有效的减少没有推断出来的倍增与缺失事件。
+
+在这一章中，我们将把倍增/缺失推断至于更一般的理论框架并给出一个新的实现算法。我们的算法基于
+Zmasek和Eddy的工作，但允许多分叉的物种树。
+
+\section{物种映射}
+
+为了描述基因倍增/缺失分析，我们需要在物种树和基因树之间建立一个桥梁：物种映射(species map)。物种映射将一个现有基因或祖先基因
+映射到拥有这个基因的物种(现有或祖先物种)。当我们知道了每一个基因属于哪个物种，我们
+就能将物种进化和基因进化相接合，重现历史进而实现推断。
+
+我们用数学的记号来描述这一过程。令$G$是一个基因树，$S$是物种树。这两者都是有根树。给定一个现有基因
+$g\in V_E(G)$，令$s_g\in V_E(S)$是含有基因$g$的现有物种。那么，物种映射$M:V(G)\rightarrow V(S)$
+对每一个$g\in V(G)$满足：(i) 如果$g\in V_E(G)$，则$M(g)=s_g$；(ii) 对所有$g'\in\omega_G(g)$，$s_{g'}\leq M(g)$；(iii) 如果$g<g'$，则$M(g)\leq M(g')$。
+物种$M(g)$是包含有基因$g$的物种。映射$M$事实上将一棵物种树嵌入基因树，它体现了物种进化是如何影响基因进化的。在下面的章节中，我们
+将看到仅依靠物种映射$M$我们就能推断出历史上所有的倍增与复制事件。因此物种映射决定着整个推断过程，它是本章的关键。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.4}\\*
+\includegraphics{mpfig.5}
+\end{center}
+\caption[说明物种映射的例子]{说明物种映射的例子。上面的图显示了物种树$S$和基因树$G$之间
+最简约物种映射$M^*$。在这个映射下，每个基因都正常演化而没有发生过倍增或缺失事件。下面的图显示了另一个可能的物种映射$M'$。
+如果这个物种映射是事实，这个基因家族至少经历了一次倍增(在结点$g'$)和两次缺失(图中的虚线)。
+在这个例子中，枝长没有任何意义，仅为作图方便。}\label{fig:specmap-exa}
+\end{figure}
+
+给定一棵物种树和基因树，许多映射都满足如上两个条件。极大似然法选择使某种模型下概率最大的那个映射。这个过程
+十分耗时。与之不同的是简约法简单的选择最大简约物种映射$M^*$来进行推断，最大简约映射总是推断出最小数量的
+倍增/缺失事件。在本文我们不加证明的指出$M^*$可以如下构造：
+\begin{equation}\label{equ:par-M}
+M^*(g)=\lhlca\{s_{g'}:g'\in\omega_G(g)\}
+\end{equation}
+很明显，$M^*$是一个物种映射，它其实是可能包含基因$g$的据今最近的物种。这也是$M^*$被命名为
+简约物种映射的原因之一。图\ref{fig:specmap-exa}给出了简约映射和非简约映射的例子。
+
+\section{基因倍增/缺失的推断(DLI)}
+
+在理想情况下，基因的倍增可以通过观察一个物种的基因是否出现多次而得到。如果没有基因缺失的干扰，
+这是可以做到的。但是如果缺失发生，这种简单的策略就会漏掉部分倍增事件。我们在推断时必须要恢复出丢失的基因
+才能得到正确的结果。对一棵二分岔的物种树，我们可以简单的比较$M(g)$和$M(\lhparent(g))$~\cite{zmasek01}，
+若$M(g)=M(\lhparent(g))$成立，则在$\lhparent(g)$发生一次复制。但对一棵多岔物种树，这种做法
+会多估计出一些倍增事件。图~\ref{fig:sigma}给出了一个例子。在这个例子中，$g$和$g_p\equiv\lhparent(g)$都被物种映射映射到{\it Eutheria}，
+但$g_p$还是一个分化节点，而不是倍增节点。为了将倍增/缺失推断推广到多分叉物种树的情形，我们必须
+显式的恢复在基因树中缺失的物种。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.3}
+\end{center}
+\caption[说明$\sigma(g)$作用的例子]{说明$\sigma(g)$作用的例子。左边是一棵有多分岔点的物种树$S$。右边是
+带有一个缺失的基因树$G$。结点$g\in V(G)$在最简约物种映射下映射于$M^*(g)$，而$g_p$映射于$M^*(g_p)=M^*(g)$。
+在这个例子中$\sigma'(g)=\{{\it Human,Rat}\}$，$\sigma(g)=\{{\it Human,Mouse,Rat}\}$以及
+$\omega_S(M^*(g))=\{{\it Human,Mouse,Rat,Dog}\}$。这三个集合彼此不同：
+由于小鼠(mouse)有一个基因缺失，$\sigma'(g)$比$\sigma(g)$小；而由于$M^*(g)$是一个三分岔点，
+$\omega_S(M^*(g))$比$\sigma(g)$大。}\label{fig:sigma}
+\end{figure}
+
+为了达到这一点，我们引入两个新的集合：
+\begin{equation}\label{equ:sigma0}
+\sigma'(g)=\{s_{g'}:g'\in\omega_G(g)\}
+\end{equation}
+以及
+\begin{equation}\label{equ:sigma}
+\sigma(g)=\sigma'(g)\cup\left\{s\in V_E(S):\mbox{$\exists s'\in\sigma'(g)$, $\lhlca(s,s')<M(g)$}\right\}
+\end{equation}
+集合$\sigma'(g)$只包含可从树中直接观测到的现有物种，而方程\ref{equ:sigma}的第二个集合中还包含了
+在$G|_g$中缺失的物种。因此集合$\sigma(g)$包含所有无缺失情况下$G|_g$中应该出现的物种。
+
+尽管集合$\sigma(g)$的定义看起来十分复杂，但这是必要的。这一点可以从$\sigma'(g)$、$\sigma(g)$和$\omega_S(M(g))$这三个集合的关系看出来：
+$\sigma'(g)\subset\sigma(g)\subset\omega_S(M(g))$
+总是成立的，并且当无缺失发生时$\sigma'(g)=\sigma(g)$，而当$M(g)$是二岔节点时$\sigma(g)=\omega_S(M(g))$成立。
+图~\ref{fig:sigma}说明了这三个集合的不同。我们在下文会看到$\sigma(g)$在倍增/缺失推断中发挥着重要作用。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics[width=0.7\textwidth]{dli-exa}
+\caption[基因倍增/缺失推断的具体例子]
+    {基因倍增/缺失推断的具体例子。只有$g_0$是一个倍增结点。每一个内结点旁边的斜体字给出了对应祖先基因的祖先物种。灰色字体和边
+    显示了由于基因缺失而不能在现在观测到的基因。在这棵基因树上，一些$\sigma$集合如下：
+    $\sigma(\mbox{\sf G1\_rat})=\{\mbox{\it Rat}\}$, $\sigma(\mbox{\sf G2\_chicken})=\{\mbox{\it Chicken}\}$,
+    $\sigma(g_0)=\{\mbox{\it Huamn, Mouse, Rat, Chick}\}$以及$\sigma(g_1)=\{\mbox{\it Human, Mouse, Rat}\}$。
+    节点$g_1$是分化并因此在{\sf G1\_rat}和$g_1$间发生的缺失为$\{\mbox{\it Mouse}\}$；
+    $g_0$是一个倍增节点因而{\sf G2\_chicken}和$g_0$间发生缺失的现有物种为
+    $\sigma(g_0)\setminus\sigma(\mbox{\sf G2\_chicken})=\{\mbox{\it Human, Mouse, Rat}\}$，这
+    其实由一次缺失$\{\mbox{\it Eutheria}\}$这一个缺失事件引起。}\label{fig:dli-exa}
+\end{center}
+\end{figure}
+
+\subsection{基因倍增和直系同源基因的推断}
+
+如果在$g\in V_I(G)$发生了一次倍增事件而没有发生后继的缺失，我们总会看到$\sigma'(g_1)=\sigma'(g_2)$ ($\lhchild(g)=\{g_1,g_2\}$)。
+但是，如果缺失发生了，$\sigma'(g_1)\cap\sigma'(g_2)=\emptyset$也可能会成立；在这时，
+$\sigma(g)$的作用就发挥出来了，这是因为它不但包括了能在树中观测到的物种，也包含了缺失的物种。
+从数学上说，如果$\sigma(g_1)\cap\sigma(g_2)\neq\emptyset$成立，
+则说结点$g$是一个倍增结点(duplication node)或说在结点$g$发生了倍增事件。图\ref{fig:dli-exa}给出了例子。
+
+如果不同物种的两个基因在这两个物种的最近共同祖先中是一个基因，则称这两个基因为直系同源基因(ortholog)~\cite{remm01}；相应的，
+在一棵基因树中，两个现有基因$g_1$和$g_2$是直系同源基因应满足条件：$\lhlca(g_1,g_2)$不是一个倍增结点。
+以上这个简单的条件如实的捕捉了生物学上给出的定义。
+
+\subsection{基因缺失的推断}
+
+下面我们定义一个缺失集$\lhloss(g)\subset V(S)$，这个集合包含所有在$g_p\equiv\lhparent(g)$进化到$g$
+时缺失的物种。值得注意的是，在这种定义下，$\lhloss(g)$是定义在边$(g,g_p)$上的，在一个结点上的推断
+不会影响到其它结点。一棵基因树所包含的总缺失数为对所有$|\lhloss(g)|$的求和。
+
+由于物种分化和基因倍增代表着不同的生物学事件，$g_p$是否为一个倍增结点会使得推断有所不同。
+当$g_p$是一个倍增结点时，子树$G|_{g_p}$和$G|_g$应该含有同样的物种；这一条件的违背意味着缺失
+的发生，$s\in\sigma(g_p)\setminus\sigma(g)$包含所有发生基因缺失的物种。如果$g_p$是一个分化结点，
+除了$s\in\sigma(g_p)\setminus\sigma(g)$这个条件，一个发生缺失的物种$s$还应出现在$M(g_p)$包含
+$M(g)$的子树内，或等价的，$s$必须满足$\lhlca(s,M(g))<M(g_p)$。令$\lhloss'(g)$为
+$g_p$进化到$g$发生缺失的物种，则$\lhloss'(g)$可计算为：
+\begin{equation}\label{equ:loss1}
+\lhloss'(g)=\left\{\begin{array}{ll}
+	\sigma(\lhparent(g))\setminus\sigma(g) & \mbox{if $\lhparent(g)$ is a duplication} \\
+	\left\{s\in\sigma(\lhparent(g))\setminus\sigma(g):\lhlca(s,M(g))<M(\lhparent(g))\right\} & \mbox{otherwise}
+	\end{array}\right.
+\end{equation}
+集合$\lhloss'(g)$只包含丢掉的现有物种，但这还不够好。缺失一个祖先物种会造成所有后代物种的缺失，基于简约原则，
+我们应该只记一次缺失事件。因此我们引入：
+\begin{equation}\label{equ:loss2}
+\lhloss(g)=\{s\in V(S):\omega_S(s)\subset\lhloss'(g),\omega_S(\lhparent(s))\not\subset\lhloss'(g)\}
+\end{equation}
+集合$\lhloss(g)$避免了上述问题。它其实是满足$\omega_S(A)=\lhloss'(g)$的最小$A\subset V(S)$。
+还拿图\ref{fig:exa-dup-loss}为例子，在那棵树中，$\lhloss'(${\sf ENSGALT00000011124\_chicken}$)=\{\mathit{human,mouse,rat,dog}\}$
+并且$\lhloss(${\sf ENSGALT00000011124\_chicken}$)=\{\mathit{Eutheria}\}$成立，而{\it Eutheria}
+正是缺失发生的物种。图\ref{fig:dli-exa}给出了另一个例子。
+
+\section{倍增函数和缺失函数}\label{sec:dl-fun}
+
+倍增函数和缺失函数都是定义在$V_I(G)$上的。它们定义为：
+\begin{eqnarray}\label{equ:dl-fun}
+D_G(g) &=& \left\{\begin{array}{ll}
+	1 & \mbox{if $g$ is a dupliation} \\
+	0 & \mbox{otherwise}\end{array}\right. \\
+L_G(g) &=& \sum_{g'\in\lhchild(g)}{|\lhloss(g')|}
+\end{eqnarray}
+倍增函数$D_G(g)$衡量了$g$是否为一个倍增结点，缺失函数$L_G(g)$记录了当$g$演化到它的子结点发生的缺失事件的个数。
+很明显，一棵基因树发生的所有的倍增和缺失事件总数分别为$\sum D_G(g)$与$\sum L_G(g)$。对一般的物种映射$M$，
+倍增函数和缺失函数的定义依赖于基因树$G$的拓扑，但如果我们使用简约物种映射$M^*$，这两个函数可以与树的整体拓扑无关。
+我们在第五章介绍完树的集合表示之后会重新审视这个问题。
+
+\section{计算物种映射的统计方法}
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.11}
+\caption[简约物种映射失效的一个例子]
+{简约物种映射失效的一个例子。假设真实的进化历史包含一次倍增(在{\it Eutheria})和两次缺失(分别在{\it Murinae}和{\it Human})事件，
+这样人和小鼠(mouse)的基因不是直系同源。强行使用简约物种映射$M^*$会漏掉这些事件并错误地推断出
+人和小鼠的基因是直系同源。}\label{fig:bad-pars}
+\end{center}
+\end{figure}
+
+物种映射$M$唯一决定了复制与缺失的推断，在这一小节，我们继续讨论如何选择$M$。出于简约物种映射的简洁与方便，
+一般情况下我们只选择$M^*$，但是如果在一个多基因家族中发生了许多倍增与缺失事件，$M^*$就会低估事件发生的次数从而
+产生错误，这时我们应该用更可靠的模型。Arvestad等人~\cite{arvestad03,arvestad04}针对此情况设计了一个Bayes算法来解决这个问题。
+在本文，我们不会过多的讨论这个Bayes算法的细节，而只对简约法与Bayes方法的比较作一些评论。
+
+在Bayes的框架下，正确的物种映射应该最大化后验概率$\Pr\{M|G,S\}$，它可以计算为：
+\begin{eqnarray*}
+\Pr\{M|G,S\}&=&\frac{\Pr\{M,G|S\}}{\Pr\{G|S\}}\\
+    &=& \frac{1}{\Pr\{G|S\}}\cdot\int_{\mu}\int_{\lambda}\Pr\{M,G,\mu,\lambda|S\}\,d\mu\,d\lambda \\
+    &=& \frac{1}{\Pr\{G|S\}}\cdot\int\!\!\!\int\Pr\{M,G|S,\mu,\lambda\}\Pr\{\mu,\lambda|S\}\,d\mu\,d\lambda \\
+    &=& \frac{1}{\Pr\{G|S\}}\cdot\int\!\!\!\int\Pr\{M,G|S,\mu,\lambda\}p(\mu,\lambda|S)\,d\mu\,d\lambda \\
+\end{eqnarray*}
+其中$\lambda$是产生速率，$\mu$是缺失速率，而$p(\mu,\lambda|S)$是给定一棵物种树$S$时$(\lambda,\mu)$的先验概率密度。当没有先验知识可供参考时，
+我们一般取带边界的均匀分布，Arvestad等人也是这样做的。在上面的方程中，当$G$给定时$\Pr\{G|S\}$是一个常数而不参与比较。
+那么我们只要去算$\Pr\{M,G|S,\mu,\lambda\}$。如果我们假设基因在分离后──不管由于物种分化还是倍增事件──就相互
+独立的演化，那么$\Pr\{M,G|S,\mu,\lambda\}$可以写成一系列相互独立因子的乘积：
+\begin{equation}
+\Pr\{M,G|S,\mu,\lambda\}=\prod_{s\in V(S)}\,\prod_{g\in M^{-\!1}(\lhparent(s))}q_G(g,s)
+\end{equation}
+其中，$q_G(g,s)$是$\lhparent(s)$进化到$s$时$\lhparent(s)$中的一个基因$g$进化而形成现有基因树的概率。则$\prod_{g\in M^{-\!1}(\lhparent(s))}q_G(g,s)$
+是物种$\lhparent(s)$进化到$s$而形成现有基因树的概率。基于前人的一些工作~\cite{nee94,yang97}，Arvestad给出了计算$q_G(g,s)$的细节。
+
+%为了说明Bayes方法的有效性，Arvestad等人在文章中给出了两个例子：第一个例子是一个MHC的多基因家族，里面
+%含有许多倍增和缺失事件；第二个例子含有很少的几个倍增与缺失，但他们声称Bayes方法可以给出较高的置信值。第一个例子是合理的，
+%但第二个可能有些偏差。有两个原因。第一，作者是用MrBayes软件~\cite{huelsenbeck01}来生成（或重构）基因树的，
+%而Bayes方法倾向于产生“过高”的置信值~\cite{suzuki02,cummings03,simmons04}。第二，在他们的评测中，
+%RIO~\cite{zmasek02}和OrthoStrapper~\cite{storm02}软件都是使用邻接法(neighbour-joining)自展值(bootstrapp)来
+%衡量置信度的，这也会导致它们较低的置信值。
+%如果RIO和OrthoStrapper也从Bayes树中计算置信值，他们很可能得到相似的结果。
+
+Bayes方法为树融合过程奠定了一个优美的理论框架，它为各种复杂的基因进化分析奠定了基础，在这种框架下我们
+也能利用物种树与基因树之间的关系互为辅助从而重构更准确的进化树\cite{arvestad04}。
+但是，Bayes方法在生物和数学方面面临着一些理论上的问题。首先，不管是由于物种分化还是基因倍增，基因在分离后并不是独立进化：
+缺失更经常紧接着复制的发生，单拷贝基因很难会发生缺失\cite{seoighe03}。这些事实还没有在目前的Bayes模型中体现。另外，Bayes方法必须
+假定一个先验分布，合理的先验可以提高推断的准确性但不合适的先验却可能造成偏差。
+带边界均匀分布是不恰当的。一方面，从TreeFam~\cite{li06}的基因树上看，
+产生率$\lambda$和消亡率$\mu$都是很小的；另一方面，为了能应用于使简约法失效的那些带有许多倍增和缺失的基因家族，
+边界值必须很大，即$\lambda$和$\mu$的选择范围很广。这就造成了矛盾。对一棵正确的基因树简约法从来不会预测出错误的倍增事件，
+但Bayes方法会，而边界均匀分布的使用会加重这一问题，这是因为较大的$\lambda$与$\mu$概率偏大会倾向于更多的倍增/缺失事件。
+错误的倍增/缺失可能造成更坏的后果，如果想在实用中大范围使用Bayes方法，我们必须对这一点也进行评测。
+
+绝大多数情况下，$\mu$和$\lambda$都是很小的，这时简约法已经足够准确。尽管在一个频繁发生倍增/缺失的基因家族中
+简约法会发生错误，但由于这时构建基因树都很成问题，Bayes方法的使用并不会为我们增加信心。另外，最简约物种映射的使用
+也使得倍增函数和缺失函数是拓扑无关的。在第六章我们将看到它的重要性。
+
+}

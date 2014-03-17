@@ -1,0 +1,80 @@
+\include{header}
+\usepackage{bioinformatics}
+\bibliographystyle{bioinformatics}
+
+\title{Working Proposal for Intron Evolution}
+\author{Heng Li}
+
+\begin{document}
+\maketitle
+
+\section{Origin of Introns}
+
+\subsection{Background}
+``Intron early'' hypothesis states that
+spliceosomal introns were present in the ancestor of prokaryotes and eukaryotes,
+while ``intron late'' hypothesis argues introns were originated after the
+speciation of the two kingdoms. Although several large-scale
+analyses~\cite{roy05,nguyen05}, which are based on 684 one-to-one orthologous
+gene families constructed by~\cite{rogozin03}, have been done to study which one is the fact,
+the answser remains unclear~\cite{rogozin05}.
+
+In the lack of a prokaryotic outgroup in TreeFam, our project cannot resolve
+this long-lasting debate, either. But with more species and gene families involved,
+we will get a refined picture of intron losses and gains in smaller lineages.
+In addtion, inclusion of paralogs also makes it possible to study intron
+evolution between paralogs.
+
+\subsection{Proposed Methods}
+Rebuild TreeFam multialignment only containing sequenced species to get better alignment. Map
+well aligned introns to each internal node of the trees with missing values allowed. Count
+intron gain/loss between two successive speciation nodes and do statistics. Intron loss/gain
+between paralogs can be achieved by examining duplication nodes. Also refer to
+Babenko {\it et al.}~\cite{babenko04}.
+
+\section{Mechanisms of Intron Losses and Gains}
+
+\subsection{Background}
+The mechanisms of intron
+losses are relatively well studied. Two factors, reverse transcription
+and genomic deletion, are thought to cause losses.
+In comparison, the mechanisms of intron gains are much more complex.
+They can be explained by intron transposition, transposon insertion,
+tandem genomic duplication, intron transfer between paralogs and self-splicing group II intron~\cite{roy06,coghlan04}.
+Concrete evidence has been found for all mechanisms,
+but it is still unclear how often they play a role in evolution.
+
+\subsection{Proposed Methods}
+\subsubsection{Locating genomic deletions}
+Genomic deletions can be observed from alignment if gaps exist around a splicing boundary.
+But sometimes they can be mixed with alignment errors.
+\subsubsection{Studying intron gains}
+Align new introns with other conserved introns to detect intron transposition.
+(See Coghlan {\it et al.}~\cite{coghlan04} for more.)
+
+\section{Patterns of Intron/Gene Size Evolution}
+
+\subsection{Background}
+It is known that genes with smaller genomic size
+tend to have higher expressional levels~\cite{castilloDavis02,urrutia03}.
+Eisenberg {\it et al.}~\cite{eisenberg03} also pointed out housekeeping genes, which tend to highly expressed, have shorter introns.
+Both works attribute this correlation to the ``selection for economy''.
+They regard the current patterns of intron sizes as a result of the balance between the selection
+of economical transcription and the overall trend of intron expansion due to
+transposons insertions. Housekeeping genes are shorter because they are frequently
+used and thus subject to higher selective pressures. Recently, Vinogradov~\cite{vinogradov06}
+challanged this notion. By examing the expressional level and percentage of conserved regions,
+he argued that intron length is determined by the gene functions. This means that intron/gene size
+itself is of biological meanings. In other words, intron/gene size is selected for functions
+instead of for economy.
+
+\subsection{Proposed Method}
+To our preliminary study in BGI, genomic sizes of orthologous mammalian genes are more conservative than sizes
+of orthologous introns. If this is the fact (not caused by bugs or artifacts), it confirms that gene size itself, rather than
+intron size, is of more importance. This result also supports that gene size is selected for
+functions; otherwise we are expected to observe longer introns are less correlated.
+We will re-produce the results using TreeFam data and model this process if possible.
+By studying paralogs and integrating expressional data, we can make the conclusion more solid.
+
+\bibliography{ref-intron}
+\end{document}

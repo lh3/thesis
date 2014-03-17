@@ -1,0 +1,132 @@
+\include{header}
+
+\newcommand{\lhchild}{\mathrm{chi}}
+\newcommand{\lhparent}{\mathrm{par}}
+\newcommand{\lhlca}{\mathrm{lca}}
+\newcommand{\lhopt}{\mathrm{opt}}
+\newcommand{\lhloss}{\mathrm{loss}}
+\newcommand{\lhspace}{\hspace{20pt}}
+
+\usepackage{bioinformatics}
+\bibliographystyle{bioinformatics}
+
+%\title{Constructing \lhcomm{the} TreeFam Database}
+%\author{Heng Li}
+%\date{14JAN2006}
+
+\begin{document}
+
+%\maketitle
+
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+\begin{verbatim}
+  
+\end{verbatim}
+\vspace{5cm}
+{\bf\huge CONSTRUCTING THE TREEFAM}\\
+\vspace{0.5cm}
+{\bf\huge DATABASE}\\
+\vspace{4cm}
+{\LARGE Li Heng\\
+\vspace{0.2cm}
+Directed by Zheng Wei-mou \\
+\vspace{0.2cm}
+The Institute of Theoretical Physics,\\
+Chinese Academic of Science\\
+\vspace{3cm}
+May, 2006}\\
+\end{center}
+\end{titlepage}
+
+\setcounter{page}{1}
+\addcontentsline{toc}{chapter}{Abstract}
+\chapter*{Abstract}
+TreeFam is a database of phylogenetic trees of gene families. It aims
+to develop a curated resource that presents the accurate evolutionary
+history of all animal gene families, as well as reliable orthologs and
+paralog assignment.
+In developing TreeFam, four novel algorithms
+were designed to improve the accuracy of tree building or to serve
+special needs for development. The first is \lhcomm{a} constrained neighbour-joining
+that efficiently adds new sequences to an existing tree while maintaining
+the original topology at the same time. This method is used to expand
+a seed tree to a full tree without losing any information added by
+manual curation. The second algorithm is \lhcomm{a} leaf reordering that
+orders the leaves of a tree according to the weights of leaves.
+\lhcomm{When it is drawn as a} picture, one tree can be displayed in different
+ways, depending on the order of leaves. This algorithm helps to
+display trees in a \lhcomm{consistent algorithm} and facilitates
+visual examination of trees, which is particularly helpful when
+comparing two trees. Thirdly, duplication and loss inference
+is fit into a more general theoretical framework and extended to allow for
+a multifurcated species tree. \lhcomm{A fourth algorithm has also been developed, 
+which is a new algorithm for merging trees.}
+\lhcomm{The tree merge algorithm} itself is not a tree building algorithm, but it
+reconstructs an optimal tree from several trees
+that are built from an identical sequence set with different tree building
+methods. The resultant tree \lhcomm{should} combine the advantages
+of, and so outperform, all the candidates. This is \lhcomm{shown to occur successfully}
+in a large-scale benchmark presented in the last chapter.
+This benchmark is one of the few evaluations that are based on real data
+\lhcomm{in the phylogenetics literature}.
+It also \lhcomm{highlights the fact} that each tree-building algorithm has its own strength,
+although ML and parsimonious methods are slightly better in general.
+
+{\flushleft {\bf Keywords:} molecular phylogenetics, tree reconstruction, database}
+
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\chapter*{Acknowledgements}
+First of all, I am most grateful to my supervisor, Wei-mou Zheng. It was him who
+took me to the realm of bioinformatics, and it was him who gave me both strict instruction and full flexibility,
+which brought me a meaningful and colorful PhD life.
+
+Next thanks go to Jun Wang and all my friends and colleagues in Beijing Genomics Institute (BGI), Chinese Academic of Science.
+I spent most of my PhD in BGI. It was them who gave me three happy yet thrilling years in my life.
+I particularly thank Jun Wang for his providing me the opportunity to collaborate with the Sanger TreeFam group,
+and thank Tao Liu for his assist and support over three years even when I overlooked his role at the beginning.
+
+With the same passion I appreciate the generous help and instruction from Sanger TreeFam group including
+Richard Durbin, Avril Coghlan, Jean-Karim H\'{e}rich\'{e}, Lachlan James Coin, and Alan Moses. Richard is the father
+of TreeFam. He raised the whole idea about TreeFam. Without him, there would be no TreeFam, not to speak my thesis.
+Avril, Jean-Karim and Alan
+read through this thesis and gave me numerous useful remarks and hints on further improvement. I particularly thank them
+for their patience with my poor English. Lachlan and Avril also helped to revise an earlier version of
+Chapter~\ref{chap:merge}. Their insightful opinions made this chapter more solid and generalized.
+In addition, I learnt a lot from the communications with Sanger group, either by e-mail or in TreeFam workshop.
+TreeFam is always the result of group work.
+
+I also wish to show my gratefulness to my Danish friends, especially to Lars Bolund who provided me
+a peaceful place and harmonious evironment where I could focus on TreeFam project and my thesis in 2005.
+I owe a lot to him and to all my Danish friends. At the same time I want to thank to
+Professor Bai-lin Hao for his kind instructions, to Ms. Ling Guo for her help when I was
+in BGI, and to all my classmates and roommates of the Institute of Theoretical Physics
+(ITP) for their help in these years.
+
+At last, a big thank you to my dear prarents and my girlfriend for their silent support all the time.
+
+\tableofcontents
+\addcontentsline{toc}{chapter}{Contents}
+\listoffigures
+\listoftables
+
+\include{introduction}
+\include{treefam}
+\include{build-tree}
+\include{dli}
+\include{tree-merge}
+\include{evaluation}
+\appendix
+\include{implementation}
+\include{publications}
+
+\refstepcounter{chapter}
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliography{ref}
+
+\refstepcounter{chapter}
+\addcontentsline{toc}{chapter}{Index}
+\printindex
+
+\end{document}

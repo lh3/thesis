@@ -1,0 +1,307 @@
+\chapter{树合并算法} \label{chap:merge}
+{\xiaosi
+进化树(phylogenetic tree)是分子进化学(molecular phylogenetics)的核心。出于它不可替代的地位，进化学家们设计了许多算法
+来构建进化树以恢复进化历史，这些方法包括：距离法(distance based)，简约法~\cite{fitch71}(maximum parsimony)，
+极大似然法~\cite{felsenstein81}(maximum likelihood)
+和Bayes方法~\cite{rannala96}；这些方法奠定了方法学基础，但应用中它们也需要具体的进化模型和参数来协同工作包括
+JTT~\cite{jones92}\index{JTT}，
+WAG~\cite{whelan01}\index{WAG}，
+HKY~\cite{hasegawa85}\index{HKY}和
+GY94~\cite{goldman94}\index{GY94}。
+既然我们有这么多算法和模型，树重构问题被最终解决了吗？答案是否定的，其中一个主要原因
+是：进化速率和方式在不同时间不同种系间是有差异的~\cite{lopez02}。一个最适合某一时间段或
+进化方式的模型可能在别的时段作出错误的推断；并且针对性越强，造成这种错误的可能性也越大。
+尽管一些作者已经注意到了这一现象~\cite{weiss03,susko02}，并针对简单情况进行了
+仔细分析~\cite{kolaczkowski04,gadagkar05,spencer05,philippe05}，但在实际应用中
+生物学家们还是不得不用各种算法和模型建树，仔细观察并靠个人经验手工将各种结果结合成为一棵树。
+但生物学家是如何做到的？我们有办法实现一个算法自动完成这一点吗？这一章将回答这两个问题。
+
+\begin{figure}[!hb]
+\includegraphics[width=\textwidth]{CCNI-dn}\\
+\includegraphics[width=\textwidth]{CCNI-ds}\\
+\includegraphics[width=\textwidth]{CCNI-dm}
+\caption[树合并算法的例子]{树合并算法的例子。从非同义距离矩阵构造的非同义邻接树(nonsynonymous tree, dN tree)和
+  从同义距离矩阵构造的同义邻接树(synonymous tree, dS tree)均由标准邻接法(neighbour-joining)构建。
+  这两棵树合并后得到最下面的合并树。加粗的线为从同义树dS中选取的枝，而剩下的取自dN。合并树
+  含有较少的缺失数，而具有更高的自展(bootstrap)支持。}\label{fig:mergeexam2}
+\end{figure}
+
+为了理解生物学家是如何评价和合并几棵进化树的，先看一个例子。图~\ref{fig:mergeexam2}
+给出了两棵树及其合并结果。图中的两棵树，同义树$d_s$与非同义树$d_n$\footnote{非同义距离(nonsynonymous distance, $d_n$)
+计量了影响氨基酸(amino acid)变化的核苷(nucleotide)突变，而同义距离(synonymous distance, $d_s$)计量了
+不影响氨基酸变化的突变~\cite{nei86,li93,goldman94,yang00}。这两种距离只能用于编码序列(CDS)。理论上
+$d_s$能更准确的衡量序列的进化距离，这是因为尽管密码子倾向性(codon bias)是存在的，
+$d_s$通常不受不均匀进化的选择\cite{ayala99,baldauf03}；然而，当分化时间较远时，$d_s$会倾向于饱和(saturation)从而不能准确估计，因此
+$d_s$树较高的分枝不可靠。相反地，$d_n$即使在分化时间较长时也不容易饱和，但它对相似序列
+效果却不总是很好，因此$d_n$树较低的分枝相对而言不够准确。}，都是由邻接法构造的。
+不用其它的信息，生物学家很快就可以凭经验判断同义树较低的分支和非同义树较高的分支是正确的。这种判断
+基于三个规则：(a) 可靠的分支通常具有较高的自展支持； (b) 同义树对较近的物种更有效，而非同义树对较远物种有效；(c) 正确
+的基因树经常相似于物种树。如果我们能实现一种策略或算法来综合考虑这些规则，我们就可以自动合并
+几棵用不同方法构造的进化树而达到更好的效果。这就是树合并算法(tree merge algorithm)。
+
+原则上树合并算法并不复杂。它只是在每一个内节点选择一对能在备选树中找到的最优子节点。但为了
+能严格而准确的描述这个算法，我们还是要引入许多抽象的概念。在本章我们先介绍树的第三种表示法，集合表示(set representation)。
+接着，树合并算法将以严格的形式提出。在证明及描述这个算法之后我们还要分析它的时间复杂性。
+在下一章我们将给出一个评测以证明树合并算法的有效性。
+
+\section{树的集合表示}
+
+在比较两棵从同一序列集不同方法构造出的两棵树时，树的图表示并不方便。用图论的语言，我们必须同时比较节点集与边集才能
+确定两棵树是否相同。但这个过程其实并不必要。在有根树上，每一条边可以唯一地用它的较低节点覆盖的叶节点的子集合来确定；
+我们可以用一个叶节点的子集来表示一条边\footnote{类似的，无根树的边可以用叶节点集的二分(bipartition)来表示。}，
+这样树的拓扑比较可化成集合的比较，更简洁也直接。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.10}
+\caption[树的集合表示的例子]{树的集合表示的例子。在这棵树上，集合$\omega_G(g)$显示在每一个内结点的旁边，而$G$的
+  集合表示为$\bar{G}=\{\{1\},\{2\},\{3\},\{4\},\{5\},\{2,3\},\{1,2,3\},\{1,2,3,4\},\{1,2,3,4,5\}\}$；反过来，如果我们
+  知道$\bar{G}$我们也就知道了$G$的拓扑。更进一步，如果我们令$\bar{g}=\{1,2,3\}$，则有$\bar{G}|_{\bar{g}}=\{\{1\},\{2\},\{3\},\{2,3\},\{1,2,3\}\}$，
+  这是子树$G|_g$的集合表示。}\label{fig:example-set}
+\end{center}
+\end{figure}
+
+令$V$是一个叶节点集合，$\Sigma(V)=\{\mbox{$G$是一棵有根树}:V_E(G)=V\}$是所有叶节点集为$V$的有根树的集合。
+对所有$G\in\Sigma(V)$，我们可以利用$\omega_G$映射(方程\ref{equ:omega})构造$\bar{G}\subset 2^V$~\footnote{给定一个
+集合$V$，$2^V=\{A:A\subset V\}$是$V$所有的子集组成的集合，包括$V$本身和空集$\emptyset$。$2^V$也称做$\sigma$-集合。
+注意到$\left|2^V\right|=2^{|V|}$总是成立的，这也是$2^V$记号的由来。}：
+\begin{equation}\label{equ:setrepre}
+\bar{G}=\{\bar{g}\subset V:\bar{g}=\omega_G(g),g\in V(G)\}
+\end{equation}
+
+很明显，如果$G_1$和$G_2$相同则必有$\bar{G_1}=\bar{G_2}$；而若两者不同则$\bar{G_1}$和$\bar{G_2}$也不同。
+因此方程~\ref{equ:setrepre}事实上在图$G$和集合$\bar{G}$间建立了一个一一映射，图$G$总可以用$\bar{G}$来表示，
+这就是有根树的集合表示。为描述方便，我们还引入：
+\begin{equation}
+\bar{G}|_{\bar{g}}=\{\bar{g}':\bar{g}'\subset\bar{g}\}
+\end{equation}
+集合$\bar{G}|_{\bar{g}}$是子树$G|_g$的集合表示。图~\ref{fig:example-set}给出了一个例子。
+
+在本章像$\bar{G}$和$\bar{g}$这样的记号总是代表集合表示。
+
+\section{倍增与缺失函数的集合形式}
+
+在前一章的小节\ref{sec:dl-fun}中，倍增与缺失函数定义为(方程\ref{equ:dl-fun})：
+\begin{eqnarray}\label{equ:dl-fun-set}
+D_G(g) &=& \left\{\begin{array}{ll}
+    1 & \mbox{if $g$ is a duplication} \\
+    0 & \mbox{otherwise}\end{array}\right. \\
+L_G(g) &=& \sum_{g'\in\lhchild(g)}{|\lhloss(g')|}
+\end{eqnarray}
+这种方式定义下的两个函数是和基因树$G$的拓扑相关的，即只有给定一棵树才能计算它们。事实上，如果我们用简约物种映射$M^*$来推断
+倍增与缺失事件，这两个函数可以写成拓扑无关的形式。让我们在树的集合表示下重新审视它们的推导。
+
+在下文中，记号$\bar{g}$，$\bar{g}_1$和$\bar{g}_2$总为$V_E(G)$的一个子集。类似于方程\ref{equ:par-M}和\ref{equ:sigma}
+我们定义:
+\begin{eqnarray}
+\sigma'(\bar{g}) &=& \{s_{g'}:g'\in \bar{g}\} \\
+M^*(\bar{g}) &=& \lhlca(\sigma'(g)) \\
+\sigma(\bar{g}) &=& \sigma'(g)\cup\left\{s\in V_E(S):\mbox{$\exists s'\in\sigma'(g)$, $\lhlca(s,s')<M^*(\bar{g})$}\right\}
+\end{eqnarray}
+则简约倍增函数为：
+\begin{equation}
+D^*(\bar{g}_1,\bar{g}_2)=D^*(\bar{g}_2,\bar{g}_1)=\left\{\begin{array}{ll}
+	1 & \mbox{if $\sigma(\bar{g}_1)\cap\sigma(\bar{g}_2)\not=\emptyset$;} \\
+	0 & \mbox{otherwise.}\end{array}\right.
+\end{equation}
+简约缺失函数为：
+\begin{equation}
+L^*(\bar{g}_1,\bar{g}_2)=L^*(\bar{g}_2,\bar{g}_1)=|\lhloss(\bar{g}_1,\bar{g}_2)|+|\lhloss(\bar{g}_2,\bar{g}_1)|
+\end{equation}
+其中：
+\begin{equation}
+\lhloss'(\bar{g}_1,\bar{g}_2) = \left\{\begin{array}{ll}
+	\sigma(\bar{g}_1\cup\bar{g}_2)\setminus\sigma(\bar{g}_1) & \mbox{if $D^*(\bar{g}_1,\bar{g}_2)=1$} \\
+	\{s\in\sigma(\bar{g}_1\cup\bar{g}_2)\setminus\sigma(\bar{g}_1):\lhlca(s,M^*(\bar{g}_1))<M^*(\bar{g}_1\cup\bar{g}_2)\} & \mbox{otherwise}
+\end{array}\right.
+\end{equation}
+\begin{equation}
+\lhloss(\bar{g}_1,\bar{g}_2) = \{s\in V(S):\omega_S(s)\subset\lhloss'(\bar{g}_1,\bar{g}_2),\omega_S(\lhparent(s))\not\subset\lhloss'(\bar{g}_1,\bar{g}_2)\}
+\end{equation}
+这两个函数分别对应于方程\ref{equ:loss1}和\ref{equ:loss2}。
+现在，简约倍增函数和缺失函数都是定义在两个叶结点集合上的函数，这样它们的计算是拓扑无关的，即两个叶结点集内部的
+拓扑结构与倍增和缺失函数的计算无关。这个性质在树合并算法目标函数的构建中非常重要(第\ref{sec:merge-obj-fun}节)。
+
+\section{树合并算法}
+
+\subsection{树合并问题}
+
+给定一个二岔有根树的集合$\Phi=\{\bar{G}_1,\bar{G}_2,\ldots,\bar{G}_n\}$，定义允许节点集：
+\begin{equation}
+\mathcal{G}(\Phi)=\bigcup_{\bar{G}'\in\Phi} \bar{G'}
+\end{equation}
+令$\Omega(\mathcal{G})$为所有满足$\bar{G}\subset\mathcal{G}$的\emph{有根二岔树}$\bar{G}$的集合，那么$\Omega(\mathcal{G})$
+一定是$\Sigma(V)$的子集，它可以看作是$\bar{G}_1,\bar{G}_2,\ldots,\bar{G}_n$在$\Sigma(V)$张成的树子空间。
+为下文叙述方便，我们类似的引入：
+\begin{equation}
+\mathcal{G}|_{\bar{g}} = \bigcup_{\bar{G}'\in\Phi} \bar{G}'|_{\bar{g}}
+\end{equation}
+则集合$\Omega(\mathcal{G}|_{\bar{g}})$可以看成是$\bar{G}_1|_{\bar{g}},\bar{G}_2|_{\bar{g}},\ldots,
+\bar{G}_n|_{\bar{g}}$张成的树子空间。
+
+令$F$是定义在$\Sigma(V)$上的函数，广义树合并问题(general tree merge problem)指：在$\Omega(\mathcal{G})$中找到\emph{有根二岔树}$\bar{G}$使得函数
+$F$最优。对一般的目标函数$F$，唯一的解决方案是枚举$\Omega$中的所有树，计算$F$并搜索最优；但对于一类特殊
+的$F$，这种穷举式的搜索可以用高效而准确的算法来替代。在本文中，我们仅考虑如下形式的目标函数：
+\begin{equation}\label{equ:independent}
+F(\bar{G})=\sum_{\bar{g}\in \bar{G}}f(\lhchild(\bar{g}))=\sum_{\bar{g}\in \bar{G}}f(\bar{g}_1,\bar{g}_2)
+\end{equation}
+其中对一个$\bar{g}$，$\bar{g}_1$和$\bar{g}_2$代表$\bar{g}$的两个子结点。
+函数$F(\bar{G})$有两个十分重要的特性：第一，可加性；第二，函数$f$定义在$2^V\times 2^V$，这意味着
+$f(\lhchild(\bar{g}))$的计算只与$\bar{g}$的孩子$\bar{g}_1$与$\bar{g}_2$本身有关，而与$\bar{g}_1$与$\bar{g}_2$
+内部的拓扑无关。在下面的小结中我们将看到，这两个性质保证最优树可以在$O(|\Phi|\cdot|V|^2)$时间找到。
+(狭义)树合并问题(special tree merge problem)指：当目标函数满足方程~\ref{equ:independent}时在$\Omega(\mathcal{G})$中找到\emph{有根二岔树}$\bar{G}$使得函数
+$F$最优。
+
+\subsection{目标函数的构造}\label{sec:merge-obj-fun}
+
+依据方程~\ref{equ:independent}，树合并算法的有效性完全取决于函数$f$，在给出详细的算法描述之前，
+我们应该确定这样的$f$存在并且在生物上有意义。事实上，$f$可以这样定义：
+\begin{equation}\label{equ:f-obj}
+f(\bar{g}_1,\bar{g}_2)=f(\bar{g}_2,\bar{g}_1)=\alpha D^*(\bar{g}_1,\bar{g}_2)
+	+\beta L^*(\bar{g}_1,\bar{g}_2)-\gamma B^*(\bar{g}_1,\bar{g}_2)
+\end{equation}
+其中，$\alpha,\beta,\gamma>0$，$D^*(\bar{g}_1,\bar{g}_2)$和$L^*(\bar{g}_1,\bar{g}_2)$分别为
+倍增函数和缺失函数，而$B^*(\bar{g}_1,\bar{g}_2)$等于所有含有$\{\bar{g}_1,\bar{g}_2\}$这种分岔的树
+给出的最好自展支持。$D^*$和$L^*$中的星号表明简约物种映射$M^*$被用于计算倍增数和缺失数，这两个函数衡量了
+基因树与物种树的相似性，越小越好。至于$B^*$的定义，我们还会在在最后一节讨论其它的可能性。
+另外，如果我们事先知道在某个分支某种算法较好，我们也可以强行的调高自展值。至此，
+在本章前言里提到的三个规则都被考虑到了。
+
+\subsection{树合并算法}
+
+树合并算法某种程度上很象动态规划算法，它把穷举式的搜索转化为对每一个$\bar{g}\in\mathcal{G}$计算
+$F^*(\bar{g})$：
+\begin{equation}\label{equ:F-star}
+F^*(\bar{g}) = \min_{\bar{G}|_{\bar{g}}\in\Omega(\mathcal{G}|_{\bar{g}})} F(\bar{G}|_{g})
+\end{equation}
+很显然$F^*(V) = \min F(\bar{G})$总是成立，这样寻找最优树问题实际上就是如何求出$F^*(V)$，而当
+$F$服从方程~\ref{equ:independent}时这个值可以递归的来求解。为了描述这一过程，我们要对每一个
+$\bar{g}\in\mathcal{G}$构建允许子节点集：
+\begin{equation}\label{equ:C-set}
+\mathcal{C}(\bar{g}) = \left\{\{\bar{g}_1,\bar{g}_2\}:\mbox{$\bar{g}_1,\bar{g}_2\in\mathcal{G}$, $\bar{g}_1\cap\bar{g}_2=\emptyset$ and $\bar{g}_1\cup\bar{g}_2=\bar{g}$}\right\}
+\end{equation}
+集合$\mathcal{C}(\bar{g})$是$\bar{g}$的备选子结点集，即它的每一个元素$\{\bar{g}_1,\bar{g}_2\}$都是可以作为$\lhchild(\bar{g})$。
+这样，我们可以计算：
+\begin{eqnarray*}
+&&F^*(\bar{g})\\
+&=& \min_{\bar{G}|_{\bar{g}}\in\Omega(\mathcal{G}|_{\bar{g}})} F(\bar{G}|_{g})\\
+&=& \min_{\bar{G}|_{\bar{g}}\in\Omega(\mathcal{G}|_{\bar{g}})}\sum_{\bar{g}'\in \bar{G}|_{\bar{g}}}f(\lhchild(\bar{g}')) \\
+&=& \min_{\{\bar{g}_1,\bar{g}_2\}\in\mathcal{C}(\bar{g})}\left\{
+	\min_{\bar{G}|_{\bar{g}_1}\in\Omega(\mathcal{G}|_{\bar{g}_1})}\sum_{\bar{g}'_1\in \bar{G}|_{\bar{g}_1}}f(\lhchild(\bar{g}'_1))
+	+ f(\bar{g}_1,\bar{g}_2)
+	+ \min_{\bar{G}|_{\bar{g}_2}\in\Omega(\mathcal{G}|_{\bar{g}_2})}\sum_{\bar{g}'_2\in \bar{G}|_{\bar{g}_2}}f(\lhchild(\bar{g}'_2))\right\}
+\end{eqnarray*}
+从方程\ref{equ:F-star}和\ref{equ:independent}我们知道：
+\begin{equation}\label{equ:cal-F-star}
+F^*(\bar{g}) = \min_{\{\bar{g}_1,\bar{g}_2\}\in\mathcal{C}(\bar{g})}\left\{F^*(\bar{g}_1)+f(\bar{g}_1,\bar{g}_2)+F^*(\bar{g}_2)\right\}
+\end{equation}
+这样$F^*(V)$就可以递归的求解了。
+
+方程\ref{equ:C-set}和\ref{equ:cal-F-star}奠定了整个树合并算法的基础。
+表~\ref{tab:merge}给出了更多的细节。在实用中，我们要使用哈希(hash)技术来实现集合的插入与比较，如果
+针对集合元素计算的哈希函数非常理想，我们只用$O(|V|)$时间就可以完成一次集合的查找与插入。这样做会大大提高算法的速度。
+
+\begin{table}[!hb]
+\begin{center}
+\caption[树合并算法]
+{树合并算法。过程{\sc ConstructG}构造集合$\mathcal{G}$和$\mathcal{C}(\bar{g})$；{\sc OptimizeF}
+  递归地计算$F^*(\bar{g})$并把最优的子结点对结果存于$selected$；{\sc BuildTree}过程用前一步的信息
+  构建合并树。在这个算法中{\sc BuildTree}生成一棵集合表示下的树。我们也可以很容易的修改这一部分使之生
+  成图表示下的树$G^*=(V(G^*),E(G^*))$。}~\label{tab:merge}
+\begin{tabular}{|l|}
+\hline
+{\bf Function:}\\
+\lhspace{\sc TreeMerge}$(V,\bar{G}_1,\bar{G}_2,\ldots,\bar{G}_n)$\\
+{\bf Input:} \\
+\lhspace$n$ gene trees $\bar{G}_1,\bar{G}_2,\ldots,\bar{G}_n\in\Sigma(V)$; \\
+{\bf Output:} \\
+\lhspace Tree $\bar{G}^*$ by merging $\bar{G}_1,\bar{G}_2,\ldots,\bar{G}_n$\\
+{\bf Procedures:} \\
+\lhspace$\mathcal{G}\leftarrow\emptyset$ \\
+\lhspace$\mathcal{C}\leftarrow\emptyset$ \\
+\lhspace{\sc ConstructG}$(\bar{G}_1,\ldots,\bar{G}_n)$ \\
+\lhspace\lhspace{\bf for} $i = 1$ {\bf to} $n$ {\bf do} \\
+\lhspace\lhspace\lhspace{\bf for} each $\bar{g}\in \bar{G}_i$ {\bf do} \\
+\lhspace\lhspace\lhspace\lhspace$\mathcal{G}\leftarrow\mathcal{G}\cup\{\bar{g}\}$ \\
+\lhspace\lhspace\lhspace\lhspace$\mathcal{C}(\bar{g})\leftarrow\mathcal{C}(\bar{g})\cup\{\lhchild(\bar{g})\}$ \\
+\\
+\lhspace$selected\gets\emptyset$\\
+\lhspace{\sc OptimizeF}$(\bar{g})$ \\
+\lhspace\lhspace{\bf if} $F^*(\bar{g})$ has been calculated {\bf then} \\
+\lhspace\lhspace\lhspace{\bf return} $F^*(\bar{g})$ \\
+\lhspace\lhspace$min\leftarrow\infty$ \\
+\lhspace\lhspace{\bf for} each $\{\bar{g}_1,\bar{g}_2\}\in\mathcal{C}(\bar{g})$ {\bf do} \\
+\lhspace\lhspace\lhspace$score\gets\mbox{{\sc OptimizeF}}(\bar{g}_1)+f(\bar{g}_1,\bar{g}_2)+\mbox{{\sc OptimizeF}}(\bar{g}_2)$\\
+\lhspace\lhspace\lhspace{\bf if} $min>score$ {\bf then}\\
+\lhspace\lhspace\lhspace\lhspace$min\gets score$\\
+\lhspace\lhspace\lhspace\lhspace$minpair\gets \{\bar{g}_1,\bar{g}_2\}$\\
+\lhspace\lhspace$F^*(\bar{g})\gets min$ \\
+\lhspace\lhspace$selected(\bar{g})\gets minpair$ \\
+\\
+\lhspace{\sc BuildTree}$(\bar{g})$ \\
+\lhspace\lhspace{\bf if} $selected(\bar{g})=\emptyset$ {\bf then}\\
+\lhspace\lhspace\lhspace{\bf return} $\{\bar{g}\}$\\
+\lhspace\lhspace$\{\bar{g}_1,\bar{g}_2\}\gets selected(\bar{g})$\\
+\lhspace\lhspace{\bf return} $\mbox{\sc BuildTree}(\bar{g}_1)\cup\{\bar{g}\}\cup\mbox{\sc BuildTree}(\bar{g}_2)$\\
+\\
+\lhspace{\sc TreeMerge}$(V,\bar{G}_1,\bar{G}_2,\ldots,\bar{G}_n)$\\
+\lhspace\lhspace{\sc ConstructG}$(\bar{G}_1,\ldots,\bar{G}_n)$\\
+\lhspace\lhspace{\bf for} each $v\in V$ {\bf do}\\
+\lhspace\lhspace\lhspace$F^*(\{v\})\gets 0$\\
+\lhspace\lhspace{\sc OptimizeF}$(V)$\\
+\lhspace\lhspace{\bf return} {\sc BuildTree}$(V)$\\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.7}
+\caption[树合并算法的具体例子]{树合并算法的具体例子。基因树$G_1$和$G_2$合并成为$G^*$。
+加粗节点为倍增点而树枝旁边的数字是发生在这条边上的缺失数。比如，$|\lhloss(\{mou_1\},\bar{g}_3)|=|\{{\it Rat}\}|=1$，
+$|\lhloss(\bar{g}_1^c,\bar{g}_6)|=|\{{\it Human, Chicken}\}|=2$而$|\lhloss(\bar{g}_6,\bar{g}_1^c)|=0$。}\label{fig:merge-exa} 
+\end{center}
+\end{figure}
+
+哈希的使用使得树合并算法非常高效。在过程{\sc ConstructG}中，所有的哈希值可以在$O(n\cdot|V|(|V|-1))$
+时间内计算。接下来的$n\cdot(|V|-1)$次集合比较和插入最多用$O(n\cdot|V|^2)$时间。过程{\sc OptimizeF}
+要遍历$\mathcal{G}$中所有元素及其所有可能的子节点划分。这一步也是$O(n\cdot|V|^2)$。剩下的两个过程
+{\sc BuildTree}和{\sc TreeMerge}都可在$O(|V|)$完成。因此整个树合并算法的时间复杂度是$O(n\cdot|V|^2)$。
+
+图~\ref{fig:merge-exa}给出了树合并的一个具体例子。
+在这个例子中，$\mathcal{G}=\{\{hum\},\{mou_1\},\{mou_2\},\{rat\},\{chi\},\bar{g}^c_1,
+\bar{g}^c_2,\bar{g}_3,\bar{g}_4,\bar{g}_5,\bar{g}_6\}$,
+$\mathcal{C}(\bar{g}^c_1)=\left\{\{\bar{g}_3,\{mou_2\}\},\{\{rat\},\bar{g}_5\}\right\}$
+而$\mathcal{C}(\bar{g}^c_2)=\left\{\{\bar{g}_4,\{chi\}\},\{\bar{g}^c_1,\bar{g}_6\}\right\}$。
+只有$\mathcal{C}(\bar{g}^c_1)$和$\mathcal{C}(\bar{g}^c_2)$这两个集合包含两个节点对，其它的$\mathcal{C}(\cdot)$都
+只含有一个元素。如果我们令方程\ref{equ:f-obj}中$\alpha=\beta=1$和$\gamma=0$，我们可以计算出
+$f(\bar{g}_3,\{mou_2\})=1+1=2$, $f(\{rat\},\bar{g}_5)=0$, $F^*(\bar{g}_5)=1$以及$F^*(\bar{g}_3)=0$，因此
+$F^*(\bar{g}^c_1)=\min\{0+2+0,0+0+1\}=1$，结点对$\{\{rat\},\bar{g}_5\}$更优。
+类似地我们知道$f(\bar{g}_4,\{chi\})=0$, $f(\bar{g}^c_1,\bar{g}_6)=3$, $F^*(\bar{g}_4)=1+0+0=1$
+以及$F^*(\bar{g}_6)=1$，那么$F^*(\bar{g}^c_2)=\min\{1+0+0,1+3+1\}=1$，结点对$\{\bar{g}_4,\{chi\}\}$更优。最终的合并树
+为$\bar{G}^*=\{\{hum\},\{mou_1\},\{mou_2\},\{rat\},\{chi\},\bar{g}_1^c,\bar{g}_2^c,\bar{g}_4\}$，而$F(G^*)=F^*(\bar{g}^c_2)=1$。
+
+\section{讨论}
+
+树合并算法可以捕捉生物学家的思维，尽管它本身并不是一个建树算法，但它可以结合不同构树算法和模型的优点，
+自动在不同的种系间选择最合适的方法。如果备选算法和模型优势互补，树合并算法便能发挥出最大效率。
+但是，正如不给出近似正确的备选树生物学家不能校正出一棵正确的树一样，如果备选树有严重错误，
+树合并算法可能会导致偏差；有时人能辨认出输入错误而找出在$\Omega$树空间之外的拓扑，
+但树合并不能，这是理论上的限制。另外，树合并算法的表现取决于目标函数。违背这个最优目标的
+进化历史也会令树合并产生错误。这些都是我们在使用树合并算法时应该注意的。
+
+如果我们修改方程\ref{equ:f-obj}中$B^*$的定义，树合并算法也可以看作是求一致树(consensus tree)算法\cite{margush81}的变形。
+假设我们有$n$棵重抽样树(resampled trees)：$\Phi=\{\bar{G}_1,\bar{G}_2,\ldots,\bar{G}_n\}$，
+给定$\bar{g}_1,\bar{g}_2\in\mathcal{G}(\Phi)$我们可以将$B^*(\bar{g}_1,\bar{g}_2)$定义为
+满足$\{\bar{g}_1\cup\bar{g}_2\}\subset\bar{G}_i$的$\bar{G}_i$的个数，这时$B^*(\bar{g}_1,\bar{g}_2)$就是
+$\{\bar{g}_1,\bar{g}_2\}$所代表的枝的自展支持，而如果我们令$\alpha=\beta=0$，树合并算法事实上
+就是应用于有根二岔树的一致树构造算法。因此，如果$B^*$如上定义，树合并算法是对有根一致树构造算法
+在考虑物种进化时的扩展，它有助于提高一致树的准确性。
+
+树合并算法是用来处理物种进化关系明确的二岔基因树的。在第三章我们讨论了如何定根。通过修改
+Durand等人~\cite{durand06}的方法我们也可以利用物种树将基因树中的多分叉节点(multifurcated node)分离成二岔节点(binary node)，因此
+多分叉树问题也可解决。然而，“物种进化关系明确”这一条件是十分关键的。以我们的经验，
+其它符合方程~\ref{equ:independent}的标准还不能像这一条件这么有效。
+
+}

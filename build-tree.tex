@@ -1,0 +1,512 @@
+\chapter{Reconstructing Gene Trees} \label{chap:buildtree}
+
+Phylogenetic trees represent the history of evolution instead of measuring the similarity
+between sequences. Since the history can never be changed, correct trees are always there.
+Good algorithms must correctly recover the history.
+On the other hand, as no one knows what exactly happened in history, phylogenetic trees
+have to be reconstructed based on present observations. While fossils are essential
+evidence to reconstruct species trees, reconstructing gene trees can only utilize
+sequence similarity because fossils are usually insufficient and unable to date
+molecular events. Consequently, how to precisely recover the true history from sequence similarity
+becomes the eternal topic in evolutionary studies.
+
+This chapter is to describe how TreeFam reconstructs a gene tree provided a multialignment.
+After an overview of various tree-building algorithms\index{tree building algorithm}, constrained neighbour-joining,
+one of the exceptional algorithms developed in TreeFam, will be presented.
+Rooting a tree will be discussed in the next.
+Bootstrapping test and leaves reordering algorithm are also introduced here because the two
+topics are closely related to tree building process. In TreeFam-1.x, neighbour-joining is
+the only algorithm we used to build trees, but since the release of TreeFam 2.0,
+more sophisticated algorithms, including maximum-likelihood method and tree merge, are applied.
+These methods are not covered in this chapter, but are discussed in Chapter~\ref{chap:merge} and evaluated
+in Chapter~\ref{chap:benchmark}.
+
+\section{Overview of Tree Building Algorithms}
+
+Whereas phylogenetic trees can be reconstructed with various evolutionary characters,
+molecular phylogenetics mainly focuses on tree reconstruction from multiple-sequence
+alignments. Throughout this thesis, multialignment is the starting point of tree reconstruction.
+Most of algorithms discussed in this thesis will take a multialignment as the unique input.
+Only in Chapter~\ref{chap:merge}, auxiliary information will be integrated with tree building process.
+
+Tree building algorithms can be classified into four types: distance based, parsimonious,
+maximum-likelihood, and Bayesian methods. Each type of algorithm has its own strength and
+weakness. In meticulous case studies, all kinds of algorithms should be tried in attempt
+to reconstruct a reliable phylogenetic tree. This has been confirmed by the benchmark
+done in Chapter~\ref{chap:merge}.
+
+\subsection{Distance based algorithms}
+Distance based method is actually the name of a group of algorithms that reconstruct a tree
+from a distance matrix $(d_{ij})$ where an element $d_{ij}$ measures a kind of distance
+between sequence pair $i$ and $j$. Distances are usually, though not necessarily,
+calculated from a multialignment. They can be alignment scores, number of mismatches
+(also called p-distance), or historical substitution frequencies estimated from
+statistical models.
+
+Of all distance based algorithms, UPGMA~\cite{sokal58}\index{UPGMA} is the earliest. It
+mimics hierarchical clustering processes, joining the pair of closest nodes. UPGMA assumes
+the divergence of sequences occurs at a constant rate at all branches (molecular clock), which, unfortunately,
+does not always stand. Lateral algorithms do not arbitrarily require this hypothesis any longer,
+though the existence of a molecular clock help to improve the accuracy of tree building.
+In 1967, Cavalli-Sforza and Edwards~\cite{cavalliSforza67}
+suggested that tree can be built such that the length of the path between any leaf pair in the tree
+should approach the distance given by the distance matrix. This gave the rise
+of LS (least square)\index{LS, least square} method. The reconstruction of a LS tree
+require to search the whole tree space for the optimal tree, which is formidable.
+Thus, Fitch and Margoliash~\cite{fitch67}\index{Fitch-Margoliash}
+further simplified this procedure and presented a algorithm that was practically useful.
+The breakthrough came in 1987 when Saitou and Nei~\cite{saitou87} invented NJ (neighbour-joining)
+algorithm. Instead of joining a pair of closest nodes at each step like UPGMA, NJ joins a neighbour and
+does not assume the existence of a molecular clock.
+It is simple, accurate and efficient. Two alternatives, BIONJ~\cite{gascuel97}\index{BIONJ} and
+Weighbor\index{Weighbor}~\cite{bruno00}\index{Weighbor}, were also developed by improving the joining procedures.
+As a matter of fact, neighbour-joining is a greedy approximation of ME (minimum
+evolution\footnote{Minimum evolution (ME) principle regards that nature favours the tree with minimum
+sum of the lengths of the branches. In some way, it resembles maximum parsimony principle
+introduced in next subsection. Rzhetsky and Nei~\cite{rzhetsky93}
+prooved that ME tree is correct `provided that the evolutionary distances used are statistically
+unbiased and that the branch lengths are estimated by the ordinary least-squares method'.})~\cite{rzhetsky93}.
+It follows ME rule at each separated step, but does not build a true ME tree.
+Recently, Desper and Gascuel~\cite{desper04} developed
+BME framework (balanced minimum evolution)\index{BME, balanced minimum evolution}
+where ME tree can be precisely reconstructed.
+Their program FASTME\index{FASTME} was claimed to be both faster and more accurate than NJ and
+all its offshoots, which is partly confirmed in Chapter~\ref{chap:benchmark}.
+
+Distance based method is popular mainly for its unparalleled speed. It is the only
+hope for reconstructing a phylogeny containing as many as 1000 sequences. However, distance method
+is always criticized for its loss of information: substitutions on
+each site between two sequences are compacted into a single number. This
+compression not only affects the accuracy, but also limits the further application.
+For example, it is not allowed to reconstruct ancestral sequences, or
+to estimate evolutionary parameters such as transition/transversion ratio and $\Gamma$ rate
+in the distance based framework. In those cases, we must fall back
+to other methods.
+
+\subsection{Maximum parsimony}
+Given a phylogenetic tree and a multialignment, we can trace back the history
+presented by the tree and calculate the minimum number of substitutions that are required
+to explain the given data. Different trees usually yield different numbers.
+MP (Maximum parsimony) algorithm~\cite{fitch71}\index{MP, maximum parsimony}
+works by searching the whole tree space for the tree that minimizes the minimum number of substitutions.
+
+Based on the principle of Ockham's
+razor~\footnote{Given two equally predictive theories, choose the simpler,
+and the simplest answer is usually the correct answer. {\it See also}
+\href{http://en.wikipedia.org/wiki/Occam's\_Razor}{http://en.wikipedia.org/wiki/Occam's\_Razor}.},
+MP algorithm is most appealing for its simplest
+assumption: a true tree tends to contain fewer substitutions.
+No evolutionary model is in need to build a parsimonious tree.
+While this advantage attracts many biologists, statistists see it in a different way.
+They criticized that MP is unable to reconstruct a correct tree when long branches appear~\cite{felsenstein78}.
+They argued that MP is actually based on an irrealistic model where substitutions occur
+uniformly both across sites and across subtrees~\cite{holder03}.
+They claimed that MP yields less information in comparison to
+max-likelihood methods. However, although being faced with these long-lasting disputes, MP
+remains popular and shows its power especially for close homologs.
+
+\subsection{Maximum-likelihood and Bayesian methods}
+ML (maximum-likelihood) method~\cite{felsenstein81} finds the tree that maximizes the likelihood
+given a specified evolutionary model. Regardless of efficiency issues, the procedure of ML reconstruction
+is very simple: calculating the likelihood and finding the best tree.
+While ML method presents the theoretical framework, its power is actually
+determined by statistical models, which also makes ML method
+very versatile due to the flexibility of models.
+Various evolutionary information can be smoothly inferred in the statistical framework.
+ML method is definitely the most fruitful method of all the tree building algorithms.
+Furthermore, ML method was also claimed to be the
+most accurate tree building algorithms in several studies~\cite{kuhner94,hall05}.
+Most of molecular evolutionists will agree that the use of ML method reformed the system of phylogenetics.
+
+However, applying ML method is extremely computation extensive. Even when a number of heuristic
+algorithms were designed to accelerate tree searching~\cite{olsen94,guindon03,stamatakis05}, building
+a tree with hundreds of leaves is still formidable, not to speak
+bootstrapping the alignment (Section~\ref{sec:bootstrap}).
+In addition, although ML method allows for various evolutionary models in use, these models have to
+be preset in softwares and cannot be combined at will. This affects its further use
+in complex phylogenies.
+
+Bayesian method can be regarded as an alternative to ML method. But instead of actively traversing the whole
+tree space to find the one with maximum likelihood like ML, it finds the one that maximizes posterior probability
+by sampling phylogenetic trees through MCMC (Markov Chain Monte Carlo) based on the specified model~\cite{rannala96}.
+The most exciting advantage of Bayesian method is its unparalleled flexibility. As
+it just generates trees instead of calculating the probability of a given tree, complex analytical computations
+can be avoided. Thus, various complex models can be easily designed and combined together, and
+by summarizing from a bulk of sampled trees,
+parameter estimation also becomes painless. Furthermore, sampled trees in MCMC process
+can be considered as resampled trees to some extend~\cite{larget99}. Support values are naturally calculated
+with less computational resources, though these values may be `excessively high' as pointed out
+by several works~\cite{suzuki02,cummings03,simmons04}.
+
+\section{Constrained Neighbour-Joining} \label{sec:cnj}
+
+All traditional tree-building algorithms are unsupervised in that they never make use of
+additional knowledge provided by a human. Even if we know a leaf set $A$ should be
+separated from $B$, they can be still mixed up in the resultant tree. In TreeFam,
+however, we must preserve the topology of the seed tree, or the knowledge of curators, when building a full tree.
+This is a supervised procedure. New algorithm must be designed for this goal; otherwise
+the effort of curation would come to naught when the full tree does not utilize
+the curated topology. In this section we introduce the first key algorithm of TreeFam,
+constrained neighbour-joining (cNJ), which can add new sequences to an existing tree
+without changing the given topology. We start with the standard neighbour-joining.
+
+\subsection{Standard neighbour-joining algorithm}
+A distance matrix is said to be \emph{additive}\index{additive} if there exists a binary tree from which
+the length of the path~\footnote{In a tree, the path length equals to the sum of lengths of the edges/branches in the path.}
+connecting each pair of leaves equals to
+the their pairwise distance presented by the matrix. In turn, if a distance matrix is additive, we can
+always reconstruct the tree that makes the additivity. Neighbour-joining~\cite{saitou87}
+is the algorithm that finds this tree.
+
+Neighbour-joining works by adding a new internal node that joins a pair of neighbouring leaves at each step.
+Given a symmetric distance matrix $(d_{ij})_{n\times n}$, a neighbour pair is the pair of leaves that minimizes $D_{ij}$ of
+all possible $(i,j)$, where $D_{ij}$ is defined as:
+\begin{eqnarray*}
+D_{ij}&=&d_{ij}-(r_i+r_j) \\
+r_i&=&\frac{1}{n-2}\sum_{k=1}^n d_{ik}
+\end{eqnarray*}
+When a new node $K$ is added to join a neighbour $(I,J)$, the distances between them
+can be calculated as:
+\begin{eqnarray*}
+d_{IK}&=&\frac{1}{2}(d_{IJ}+r_I-r_J) \\
+d_{JK}&=&d_{IJ}-d_{IK}
+\end{eqnarray*}
+And the distances between $K$ and all the other nodes are:
+\[
+\mbox{$d_{Km}=\frac{1}{2}(d_{Im}+d_{Jm}-d_{IJ})$, for $m=1,2,\ldots,n$, $m\not=I$ and $m\not=J$}
+\]
+With neighbour $I$ and $J$ removed and $K$ added, the original $n\times n$ distance matrix $(d_{ij})$ will be reduced
+to $(n-1)\times(n-1)$. This finishes one round of iteration. When this process is applied
+repeatedly until the matrix becomes $3\times3$\footnote{This is because in an unrooted binary tree each internal node
+has three edges attached.}, the three remaining nodes should be
+joined together. Tracing the joins at each step we can make a binary unrooted tree,
+which is the standard neighbour-joining tree.
+If the distance matrix is additive, this tree suffices additivity.
+Proof can be found in the book written by Durbin {\it et al.}~\cite{durbin98}.
+
+Neighbour-joining algorithm joins the pair that minimizes $D_{ij}$ instead of $d_{ij}$.
+This is one of the main points where neighbour-joining differs from UPGMA algorithm.
+Minimizing $D_{ij}$ can avoid false-joining when long branches occur, and the existance
+of long branches will always break the molecular clock, which will fail UPGMA.
+This is the strongth of neighbour-joining.
+
+\subsection{Constrained neighbour-joining algorithm}
+The basic idea of neighbour-joining algorithm is very simple. The only difference between
+the standard neighbour-joining and the constrained one is that
+constrained neighbour-joining disallows joining that are conflict with the topology of
+the given constraining tree. As in each step all pairs of leaves will be checked, check of valid
+joining must be fairly efficient. As a matter of fact, if we notice the fact that joining
+is only allowed between two leaves with the same parent node,
+we can contract the constraining tree by removing joined leaves and making the parent a new
+external node. Such contract is performed each time when two leaves in the constraining tree
+are joined together. As checking whether two leaves sharing a same parent
+can be done in $O(1)$, validating allowed joining can also be achieved in $O(1)$ time, and consequently,
+constrained neighbour-joining has the same time complexity with that of the original one,
+that is, $O(N^3)$ where $N$ is the number of leaves.
+Figure~\ref{fig:example-cnj} also gives an example.
+Detailed algorithm is described in Table~\ref{tab:cnj}. This table also
+presents the standard neighbour-joining algorithm.
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.9}
+\caption[Example of constrained neighbour-joining algorithm]
+{Example of constrained neighbour-joining algorithm. In the first three rows, the left is the
+constraining tree at current step; the right shows the remaining nodes and the best allowed joining.
+At step 3, only three nodes remains. They are joined together, which makes a trifurcation. The resultant
+tree is showed in the end. Note that no constraint is applied to node `3'. It can be freely joined to other
+if node `3' neighbours a certain node at some step.}\label{fig:example-cnj}
+\end{center}
+\end{figure}
+
+\begin{table}[!hb]
+\begin{center}
+\begin{tabular}{|ll|}
+\hline
+&\textbf{Input:} \\
+&\lhspace Distance matrix $(d_{ij})$ \\
+&\lhspace A rooted constraining tree $C$ with all its leaves appearing in the matrix \\
+&\textbf{Output:} \\
+&\lhspace A neighbour-joining tree $T=(V(T),E(T))$ \\
+&\textbf{Procedure:} \\
+&\lhspace Let $\mathcal{L}$ be the set of nodes that appear in the distance matrix \\
+&\lhspace$\mathcal{L}_C\gets V_E(C)$ \\
+&\lhspace$V(T)\gets\mathcal{L}$ \\
+&\lhspace$E(T)\gets\emptyset$ \\
+&\lhspace\textbf{while} $|\mathcal{L}|>3$ \textbf{do} \\
+&\lhspace\lhspace{\bf for} each node $i\in\mathcal{L}$ {\bf do} \\
+&\lhspace\lhspace\lhspace$r_i\gets\frac{1}{|\mathcal{L}-2|}\sum_{k\in\mathcal{L}}d_{ik}$ \\
+&\lhspace\lhspace$M\gets\infty$\\
+&\lhspace\lhspace{\bf for} each node pair $(i,j)\in\mathcal{L}\times\mathcal{L}$ {\bf do} \\
+&\lhspace\lhspace\lhspace$D_{ij}\gets d_{ij}-(r_i+r_j)$\\
+&\lhspace\lhspace\lhspace\textbf{if} $D_{ij}<M$ \textbf{then} \\
+$\ast$&\lhspace\lhspace\lhspace\lhspace{\bf if} $\{i,j\}\not\subset\mathcal{L}_C$ {\bf OR} $\lhparent_C(i)=\lhparent_C(j)$ {\bf then} \\
+&\lhspace\lhspace\lhspace\lhspace\lhspace$M\gets D_{ij}$, $I\gets i$ and $J\gets j$ \\
+&\lhspace\lhspace$V(T)\gets V(T)\cup\{K\}$\\
+&\lhspace\lhspace$E(T)\gets E(T)\cup\{(K,I)\}\cup\{(K,J)\}$\\
+&\lhspace\lhspace{\bf for} each node $m\in\mathcal{L}$ {\bf do}\\
+&\lhspace\lhspace\lhspace$d_{Km}\gets\frac{1}{2}(d_{Im}+d_{Jm}-d_{IJ})$\\
+&\lhspace\lhspace$d_{IK}\gets\frac{1}{2}(d_{IJ}+r_I-r_J)$ \\
+&\lhspace\lhspace$d_{JK}\gets d_{IJ}-d_{IK}$ \\
+&\lhspace\lhspace$\mathcal{L}\gets\left(\mathcal{L}\cup\{K\}\right)\setminus\{I,J\}$ \\
+$\ast$&\lhspace\lhspace\textbf{if} $\{I,J\}\cap\mathcal{L}_C\neq\emptyset$ \textbf{then} \\
+$\ast$&\lhspace\lhspace\lhspace\textbf{if} $\lhchild(\lhparent_C(I))=\{I,J\}$ \textbf{then} \\
+$\ast$&\lhspace\lhspace\lhspace\lhspace$\lhparent_C(K)\gets\lhparent_C(\lhparent_C(I))$ \\
+$\ast$&\lhspace\lhspace\lhspace\textbf{else if} $I\in\mathcal{L}_C$ \textbf{then}\\
+$\ast$&\lhspace\lhspace\lhspace\lhspace$\lhparent_C(K)\gets\lhparent_C(I)$ \\
+$\ast$&\lhspace\lhspace\lhspace\textbf{else if} $J\in\mathcal{L}_C$ \textbf{then}\\
+$\ast$&\lhspace\lhspace\lhspace\lhspace$\lhparent_C(K)\gets\lhparent_C(J)$ \\
+$\ast$&\lhspace\lhspace\lhspace$\mathcal{L}_C\gets\left(\mathcal{L}_C\cup\{K\}\right)\setminus\{I,J\}$ \\
+&\lhspace add a new node $K$ that joins the remaining three nodes in $\mathcal{L}$ \\
+\hline
+\end{tabular}
+\caption[Algorithm for constrained neighbour-joining]
+{Algorithm for constrained neighbour-joining. Lines labeled by `$\ast$' are specific to
+constrained neighbour-joining. By removing these lines, we can get the ordinary NJ algorithm.}\label{tab:cnj}
+\end{center}
+\end{table}
+
+\subsection{Further discussion}
+As a matter of fact, constrained neighbour-joining presented above does not follow the neighbour-joining rule.
+It cannot ensure that an allowed pair of neighbours can always be joined. This is because constrained NJ
+assumes the constraint is a rooted tree. It will not consider other rooted topologies and
+arbitrarily join the nodes in the suffix order\footnote{If the nodes of a rooted tree are traversed in suffix order,
+lower nodes will always be visited earlier than higher nodes.}
+of the given constraining tree.
+ To explain this, let's see an example. Assume we have a tree
+{\tt ((1,2),3,4)} reconstructed by standard NJ. From the given tree, the only joining happens
+between leaf {\tt 1} and its neighbour {\tt 2}. Now, we continue to assume that the
+rooted topology of this tree should be {\tt (((3,4),2),1)} and use this rooted
+tree as constraint. Then {\tt (3,4)} must be joined first by constrained NJ described above, although
+the true neighbour {\tt (1,2)} does not violate the constraint in the unrooted topology.
+Constrained NJ shuffles the order of joining and breaks NJ rule.
+
+If the distance matrix was strictly additive, or equivalently, if the distance between any pairs of
+the leaves always equaled to the length of the path that connects the pair,
+the order of joining would be unimportant. Joining in any order will lead to the same tree, including the branch length.
+In the real world, however, strict additivity is rarely held. Even if a standard NJ
+is used as constraint, constrained NJ will frequently generate a tree with different
+branch length, though the topology is the same.
+
+Given this fact, we also developed another version of constrained neighbour-joining that
+regards the constraint as an unrooted tree. On the example above, the new version
+will correctly join the neighbour {\tt (1,2)} in the first step. This is also an $O(N^3)$ algorithm, but it
+can only be applied when the constraint is a binary tree; otherwise the time complexity will
+be increased. This algorithm is much more complex than the previous one and will not be described in this thesis.
+
+\section{Rooting Trees} \label{sec:root-tree}
+Any phylogenetic tree is a rooted tree given the hypothesis that all organisms on Earth
+had a common ancestor. However, neighbour-joining and likelihood method can only reconstruct
+an unrooted tree, and so algorithms must be developed to root a tree. In fact, rooting is of the same
+importance as building a tree. A wrong root leads to a different story.
+
+There are several ways to root a tree. The most widely used one is to select an outgroup sequence
+among all the leaves, and directly put the root on the branch that connects the outgroup. However,
+in lack of adequate biological evidence, outgroups are hard to decide especially for some complex gene families.
+It is impossible to automatically define an outgroup for every TreeFam family, and so
+this method is not applicable to TreeFam.
+
+Another method is to minimize the height among all the possible rooted trees, which can be achieved by
+placing the root at the middle point of the longest chain of consecutive edges.
+It works well if deviations from molecular clock is not that much~\cite{durbin98}.
+This method was further extended in Bayesian framework~\cite{huelsenbeck02}.
+
+A more sophisticated method, the one used by TreeFam, is to minimize the
+dissimilarity between the gene tree and a species tree~\cite{zmasek01},
+which can be achieved by enumerating all the possible rooted trees and choosing
+the one that contains fewest duplications and losses under parsimonious species map (Chapter~\ref{chap:dli}).
+If all sequences in the multialignment belong to one gene familyand the gene family does not suffer from massive losses,
+this method is usually able to find the correct root. It is worth noticing that both
+duplications and losses should be counted when rooting a tree. Merely considering duplications will
+frequently result in several rooted topologies with the same number of duplications~\cite{page97}.
+
+\section{Bootstrapping: testing topological stability of unrooted trees}\label{sec:bootsrap}
+
+From the statistical point of view, sequences that are used to reconstruct a tree are randomly sampled
+from whole genome sequences, and therefore the topology of the tree
+built from these sequences is also a random variable to some extent.
+It is important to check whether a tree built from current observed sequences are
+stable in the sense that it is less affected by stochatic evolution events;
+otherwise the resultant tree will not be useful to represent the history of evolution.
+
+Several methods are available to test the topological stability. The most widely used one
+is bootstrapping~\cite{efron79,felsenstein85}. The input of bootstrapping are
+an unrooted tree $T$ and its underlying multialignment $(X_{ij})_{n\times m}$
+where $X_{ij}$ is the residue (amino acid or nucleotide) at $i$-th position of the $i$-th sequence.
+Its output are the frequencies of each $T$'s branch appearing in the resampled trees built
+from randomly generated multialigns from $(X_{ij})$. During one round of bootstrapping,
+the columns (sites) of $(X_{ij})$ is randomly resampled with replacement for $m$ times. These resampled
+columns (sites) then form a new multialignment $(X^r_{ij})$, from which a resampled tree $T^r$ is built.
+For each branch $A|B\in\tilde{T}$, we add 1 to the counter at $A|B$ if $A|B\in\tilde{T}^r$, and add 0 if not.
+When we repeat this procedure for many, say 1000, times, we will know the counter at each
+branch of $T$. The value of these counters are called bootstrapping values.
+The higher, the better.
+
+Mathematically, given a multialignment
+$(X_{ij})_{n\times m}$ and an unrooted tree $T$ built from $X$, a resampled multialignment $(X^r_{ij})$
+is a random matrix:
+\begin{equation}
+X^r_{ij}=X_{iJ_j}
+\end{equation}
+where each random variable $J_j$, $j=1,\ldots,m$, follows discrete uniform distribution between $[1,m]$. That is, for all $k=1,\ldots,m$,
+$\Pr\{J_j=k\}=\frac{1}{m}$. Let $T^r$ is the tree built from alignment $X^r$, the
+bootstrapping support for each bipartition $A|B\in\tilde{T}$ will be:
+\begin{equation}
+\mathcal{B}(A|B)=\Pr\{\mbox{bipartition $A|B\in\tilde{T^r}$}\}
+\end{equation}
+
+The procedures described above can be adapted to calculate bootstrapping supports for two rooted trees,
+but this is seldom used given the difficulty in rooting. In addition,
+bootstrapping are also helpful to evaluate the stability of other properties of trees.
+The basic idea is similar to the procedure described above.
+
+\section{Reordering External Nodes}\label{sec:reorder}
+In mathematical angle, a tree is an abstract entity. Its leaves form a set and never have
+any sense of order. When the tree is visualized on a paper, however, we must place
+the leaves in certain order. Although the plotted trees on the plane represent the
+same tree no matter how the order is specified, these planar trees are quite different to
+human eyes. When one tree is plotted twice in differeny leaf orders, it is sometimes hard to recognize they are virtually the same;
+when two large trees are compared, finding inconsistent branches always turns out to
+be extremely difficult. How to plot the tree in a regulated way is very important to the visualization
+of phylogenetic trees.
+
+This section aims to plot a tree, or equivalently to order the leaves, in a regulated way that
+makes similar trees always be plotted in a similar manner. To achieve this goal,
+we will assign a weight to each leaf, and design an objective function such that
+when optimized, leaves with smaller weights tend to be placed before those with
+bigger weights. This optimization can be achieved in $O(N)$ with an intuitive yet
+correct algorithm.
+
+For simplicity, only \emph{binary rooted} trees will be considered in this section.
+Generalization to multifurcated rooted trees is basically easy.
+
+\subsection{Leaf reordering problem and algorithm}
+Given a binary rooted tree $G$ with $n$ leaves (i.e. $|V_E(G)|=n$), an {\bf order} of $G$ is a one-to-one
+map $I: V_E(G)\rightarrow \{1,\ldots,n\}$, such that there exists an NH string satisfying $v\in V_E(G)$
+appears in the $I(v)$-th position of the string. If $G$ is a binary tree,
+$2^{n-1}$ different orders exist, representing independent branch switch at
+$n-1$ internal nodes.
+As discussed in section~\ref{sec:nhformat},
+an NH string has a natural 1:1 relation to the `image' of a tree. An order $I$ actually
+decides how the tree should be plotted on the paper (Figure~\ref{fig:orderexample}). If
+we assign a weight $W(v)\in\Re$ to each leaf $v\in V_E(G)$, {\bf leaf reordering} problem
+is to find an order $I$ that minimizes the object function:
+\begin{equation}\label{equ:reorderobj}
+\sum_{v\in V_E(G)}{[W(v)-\alpha I(v)]^2}
+\end{equation}
+where $\alpha>0$ is a constant. As $I$ is one-to-one, map $I^{-1}$ must exist.
+We can transform Equation~\ref{equ:reorderobj} as:
+\begin{eqnarray*}
+&& \min_I\sum_{v\in V_E(G)}{[W(v)-\alpha I(v)]^2}\\
+&=&\sum_v W^2(v)+\sum_v {\alpha^2 I^2(v)}- 2\alpha\max_I\sum_v{W(v)I(v)} \\
+&=&\sum_v W^2(v) + \alpha^2\sum_i i^2 - 2\alpha\max_I\sum_v{W(v)I(v)} \\
+&\sim& \max_I\sum_v{W(v)I(v)}\\
+&=& \max_I\sum_{i=1}^n {i\cdot W(I^{-1}(i))}
+\end{eqnarray*}
+Thus leaf reordering problem is equivalent to find $I$ that maximize
+\begin{equation}\label{equ:reorderobj2}
+\sum_{i=1}^n {i\cdot W(I^{-1}(i))}
+\end{equation}
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.2}
+\end{center}
+\caption[Example for explaining the order of a tree]{Example for explaining the order of a tree. Both trees showed in this figure are
+exactly the same tree but with different orders. In the left, the corresponding NH string
+is {\tt ((A,B),(C,D))}, and therefore $I(A)=1$, $I(B)=2$, $I(C)=3$, and $I(D)=4$;
+in the right, NH string is {\tt ((C,D),(A,B))}, and $I'(A)=3$, $I'(B)=4$, $I'(C)=1$, and $I'(D)=2$.}
+\label{fig:orderexample}
+\end{figure}
+
+A naive solution to leaf reordering problem is to enumerate all the possible $I$.
+This works, but is of course a bad algorithm. As a matter of fact, branch switch at
+different internal nodes are independent of each other. This means the switch that
+lead to the reduction of the cost function~\ref{equ:reorderobj} will always help to
+reduce the cost no matter how the other branches are switched. As a result,
+we can always apply $n-1$ times of independent switch to find the order $I^*$
+that minimize equation~\ref{equ:reorderobj}. Now the remaining issue is how
+to choose an optimal switching pattern at an internal node. In fact, the rule is quite
+simple: at an internal node, switch the branch such that the average leaf weight of its left subtree
+smaller than the average weight of its right subtree. Let's prove it.
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.1}
+\end{center}
+\caption[Two orders before and after branch switching]
+{Two orders before and after branch switching. After switching, the $(j+1)$-th leaf in the left tree
+appears at the $(j+l+1)$-th position in the right, while the $(j+k+1)$-th leaf at $(j+1)$-th.
+Mathematically, $I'(I^{-1}(j+i))=j+l+i$ when $i=1\ldots k$, and $I'(I^{-1}(j+k+i))=j+i$
+when $i=1\ldots l$.
+}\label{fig:orderfig}
+\end{figure}
+
+Figure~\ref{fig:orderfig} shows two orders: $I$, before switching, and $I'$,
+after switching. Let $w_i\equiv W(I^{-1}(i))$ and $w'_i\equiv W(I'^{-1}(i))$, $i=1,\ldots,n$.
+Then $w_i$ is the weight of $i$-th leaf under the order $I$ and $w'_i$ is the
+weight of $i$-th under the order $I'$. From the caption of the figure, we know
+such relationships stand:
+\[\begin{array}{rcll}
+w_i &=& w'_i & (i=1,\,\ldots,\,j,\,j\!+\!k\!+\!l\!+\!1,\,\ldots,\,n) \\
+w_{i+j} &=& w'_{i+j+l} & (i=1,\,\ldots,\,k) \\
+w_{i+j+k} &=& w'_{i+j} & (i=1,\,\ldots,\,l) \\
+\end{array}\]
+Then we can compare the cost function~\ref{equ:reorderobj2} before and after
+branch switching:
+\begin{eqnarray*}
+&& \sum_{i=1}^n {i\cdot W(I^{-1}(i))} - \sum_{i=1}^n {i\cdot W(I'^{-1}(i))}\\
+&=&  \sum_{i=1}^n{i w_i}-\sum_{i=1}^n{i w'_i} \\
+&=&  \sum_{i=j+1}^{j+k+l}{i w_i}-\sum_{i=j+1}^{j+k+l}{i w'_i} \\
+&=& \left[\sum_{i=1}^k {(i\!+\!j) w_{i+j}} + \sum_{i=1}^l {(i\!+\!j\!+\!k) w_{i+j+k}}\right]
+	- \left[\sum_{i=1}^l {(i\!+\!j) w'_{i+j}}\! +\! \sum_{i=1}^k {(i\!+\!j\!+\!l) w'_{i+j+l}}\right] \\
+&=& \left[\sum_{i=1}^k {(i\!+\!j) w_{i+j}} + \sum_{i=1}^l {(i\!+\!j\!+\!k) w_{i+j+k}}\right]
+	- \left[\sum_{i=1}^l {(i\!+\!j) w_{i+j+k}} + \sum_{i=1}^k {(i\!+\!j\!+\!l) w_{i+j}}\right] \\
+&=& \sum_{i=1}^l {k w_{i+j+k}} - \sum_{i=1}^k {l w_{i+j}} \\
+&=& kl\cdot\left(\frac{1}{l}\sum_{i=1}^l w_{i+j+k} - \frac{1}{k}\sum_{i=1}^k w_{i+j}\right)
+\end{eqnarray*}
+In this formula, $\frac{1}{k}\sum_{i=1}^k w_{i+j}$ is the average leaf weight of the left subtree before branch switching
+and $\frac{1}{l}\sum_{i=1}^l w_{i+j+k}$ is the weight of the right. Thus
+a switch is only favoured when the average weight of the right subtree is lower.
+This proves the statement in the previous paragragh, and therefore proves the tree reordering algorithm.
+
+\subsection{Defining weight functions}
+Clearly, weight function $W(\cdot)$ determines how the tree should be ordered.
+Two forms of weight functions are now used in TreeFam. The first form is calculated
+based on an ordered (or a plotted) species tree; the second based on an ordered gene tree.
+
+Assume we have a species tree $S$ and an order $I_s:V_E(S)\rightarrow\{1,\ldots,|V_E(S)|\}$.
+The weight of $g\in V_E(G)$ can be defined as:
+\begin{equation}
+W_s(g) = I_s(M(g))
+\end{equation}
+where $M(g)\in V_E(G)$ is the species of gene $g$. Such a weight function tries to
+place the $G$'s leaves in an order that resembles $S$.
+
+Leaf ordering also helps to compare two trees with the same leaf set. 
+Assume we have a plotted tree $G_0$ and its order $I_0$, and we want to display
+$G_1$, which is built with a different algorithm, in a similar manner. We can define:
+\begin{equation}
+W_0(g) = I_0(g)
+\end{equation}
+If the two trees are identical, objective function~\ref{equ:reorderobj} will equal to
+zero if $\alpha=1$. Then the two will be plotted exactly in the same way. Nonetheless, it is worth to be noticed that
+equation~\ref{equ:reorderobj} may also be zero if the two tree do not differ much (Figure~\ref{fig:reorder-exa}).
+This is because the objective function only considers the order of leaves but ignores
+the changes in internal nodes. To compare the topological difference,
+counting number of shared branches is preferable. Chapter~\ref{chap:benchmark} gives more details.
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.8}
+\caption[Example of leaf reordering algorithm]{Example of leaf reordering algorithm.
+	Tree $G_1$ is an ordered tree. The goal is to place the leaves of $G_2$ in an order
+	similar to $G_1$. The top-right tree shows the original order.
+	At node $g_2^c$, the average weight of left subtree is $4.5$,
+	larger than the weight of right subtree. A branch switch should be
+	applied, which results in the image in the bottom-right.
+	At $g_1^c$, the weight of left subtree $2.5$ is the larger. A branch
+	switch is needed again. In the final tree (in the bottom-left),
+	$G_2$'s leaves appear in the same order as that in $G_1$, although they have different topologies.}\label{fig:reorder-exa}
+\end{center}
+\end{figure}

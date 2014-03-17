@@ -1,0 +1,2 @@
+f(i,x) := (c + (1 - c) * x)^i * Exp(a * c * (x - 1));
+g := Coef(Taylor(x,0,2) f(1,x),x,0 .. 2);

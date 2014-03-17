@@ -1,0 +1,384 @@
+{\xiaosi
+
+\chapter{基因树的重构}\label{chap:buildtree}
+
+从分子序列构造的进化树代表了进化的历史而不是衡量序列之间的相似度。历史是真实存在的，正确的树也就是真实的，
+好的算法必须能够准确恢复进化历史。但另一方面，历史在很大程度上是未知的，进化树的构建只能依靠现有的观测数据。尽管化石
+为重构物种树提供了重要证据，但由于化石的发掘很困难，它也不可能描述分子层次上的进化，
+重构基因树只能依靠序列的相似度。如何从序列的相似度准确恢复真实的进化历史
+是分子进化学永恒的主题。
+
+这一章将讲述TreeFam是如何在给定一个多序列比对时构建基因树的。
+在对各种建树算法作完评论后，我们首先介绍TreeFam中第一个与众不同的算法：约束邻接法(constrained neighbour-joining)。
+无根树的定根和叶结点重排算法也会得以介绍，这两个主题都与
+建树的后处理紧密相关。在TreeFam-1.x中，我们只使用了邻接法，但自TreeFam-2.0开始，
+我们在其中应用了更多的优秀算法包括极大似然法和树合并算法。这些算法并未包括在本章。
+第五章将详细描述树合并算法，第六章将对各种算法作以评测。
+
+\section{标准建树算法}
+
+尽管各种进化的性质都可以用来构建进化树，分子进化学集中研究如何从多序列比对实现树的重构。
+多序列比对是重构进化树的起点，本章算法都以多序列比对为唯一输入。在第六章中，
+辅助的信息才会用于建树。
+
+建树算法可以分为四类：距离法，简约法，似然法和Bayes方法。每一种算法都有各自的长处和弱点。在
+仔细的进化分析中，所有算法都该尝试以得到一棵可靠的进化树。在第六章的评测中，这一点也十分明显。
+
+\subsection{距离法}
+
+距离法事实上是一大类从距离矩阵$(d_{ij})$建树的算法的总称。这个距离矩阵的每一个元素
+衡量了一对序列$i$与$j$之间的某种进化距离。这种距离一般反映为多序列比对中序列的相似度，它可以是比对的分数，
+错配的个数(又称做p-distance)，或者从某种统计模型中估计出的残基替换数。
+
+在所有距离法中，UPGMA~\cite{sokal58}是最早的。它模仿了系统聚类(hierarchical clustering)的过程，每一步将距离最短的一对
+联结起来。UPGMA方法假定序列始终以相同的速度进化(分子钟假设, molecular clock hypothesis)，但这并不总是事实；
+以后的算法一般也不再强行要求这个假设。在1967年，Cavalli-Sforza和
+Edwards~\cite{cavalliSforza67}提出正确进化树中任何两叶结点树上的路径长度(即连接两结点路径上的枝长和)应该尽可能
+与距离矩阵给出的距离相近，这就是建树的最小二乘算法(Least Square, LS)。但构建LS树需要遍历整个树空间以搜索最优树，这种计算量是难以接受的。
+随后Fitch和Margoliash~\cite{fitch67}使用近似简化了最小二乘算法并给出了一个实际中可行的算法。
+距离法发展的突破发生在1987年，这一年Saitou和Nei~\cite{saitou87}提出了邻接法(neighbour-joining, NJ)。
+邻接法不像UPGMA每步连接一对最近的结点而是连接最小进化(minimum evolution,
+ME\footnote{最小进化认为进化倾向于枝长和最短的树，某种程度上它很像下一小节介绍的最大简约原理。
+Rzhetsky和Nei证明~\cite{rzhetsky93}如果一对序列间进化距离的估计在统计上是无偏的并且树枝长是由最小二乘估计的，则
+最小进化原理总能构造出正确的进化树。})\cite{rzhetsky93}意义下的一对近邻(neighbour)，从而不再需要分子钟的存在。邻接法
+简单、准确、高效，是最受欢迎的建树算法之一。在邻接法出现10年之后，BIONJ~\cite{gascuel97}和Weighbor~\cite{bruno00}算法
+也被相继提出，它们都属于邻接法的变形，只不过在连接结点的过程有所改善。事实上，邻接法是最小进化的
+贪心近似，即它在每一步遵从ME的规则，但并不保证能构造出在全局意义上的ME树。最近，Desper和Gascuel~\cite{desper04}提出了
+平衡最小进化(balanced minimum evolution, BME)的理论框架，在这种理论下，ME树可以快速而准确的构建。
+他们提出的算法声称比邻接法及其变种都更准、更快。第六章的评测也部分证实了这一点。
+
+距离法之所以受欢迎是因为它的速度，它是构建超过1000条序列进化树唯一的备选。然而，人们经常批评距离法
+在建树时丢掉了许多信息──两条序列每一个位点间的替换被压缩成了一个数字。这种压缩造成的信息丢失不但影响了它的准确性，
+也限制了距离法的进一步应用。比如，使用距离法不能推测祖先序列，也不能估计各种
+%如颠换/转换比，$\Gamma$分布形状因子等
+进化参数。在这些情况下我们只能依靠其它方法。
+
+\subsection{最大简约法}
+
+给定一棵进化树和一个多序列比对，我们能沿着进化树给出的进化史计算出能够解释给定数据的最小替换数；对不同的树这个最小替换数也不相同。
+最大简约法(Maximum parsimony, MP)~\cite{fitch71}则是在树空间中寻找
+使最小替换数最小的树作为重构树。
+
+基于奥卡姆剃刀(Ockham's razor)原则──预测时简单的理论通常是正确的──简约法以其最简单的假设形式
+而著称：正确的树含有最少的替换数。它的使用不依赖于任何进化模型。然而，尽管简约法的优点在多数生物学家
+眼中很有吸引力，统计学家则有另外的看法。他们批评简约法在出现长枝时不能构建正确的树~\cite{felsenstein78}；他们声称
+简约法事实上假定了一个进化速率在位点及时间跨度上都相同而不切实际的理论模型~\cite{holder03}；
+他们也指出简约法也不能像似然法那样给出更多的信息。虽然面临各种各样的问题，简约法
+依然为生物学家所爱，并在实用中显示了它的准确性~\cite{hall05}。
+
+\subsection{极大似然法和Bayes方法}
+
+极大似然法(maximum-likelihood, ML)~\cite{felsenstein81}在树空间中搜索
+在一个指定进化模型下使得该模型下概率最大的那棵树为重构树。如果不考虑效率上的问题，极大似然法的过程其实很简单：
+对每一棵树计算概率，再从整个树空间中挑选概率最大的那棵树。极大似然给出了一个理论框架，它的实际应用要依靠
+各种进化模型，由于进化模型的设计可以十分灵活，似然法也就十分灵活而多产，各种进化
+信息都可以在统计的框架下自然的推断出来。另外，似然法也被认为是最准确的建树算法~\cite{kuhner94,hall05}。
+多数分子进化学家会承认极大似然法的出现在系统进化这个领域是一次革命。
+
+然而，似然法的使用需要极大的计算量。即使在多种改进算法提出来之后~\cite{olsen94,guindon03,stamatakis05}
+建一棵有几百个叶结点的树还是极为困难的，更不要说对树进行多次自展(bootstrapping)
+检验(第\ref{sec:bootstrap}节)了。另外，
+尽管极大似然法允许各种进化模型的使用，但用户一般只能使用软件预先内部设定好的模型而不能方便的创建
+模型或将各种模型相结合。这阻碍了极大似然法在更复杂进化中的应用。
+
+Bayes方法可以看做是极大似然法的一种变形。它不是像似然法那样主动遍历整个树空间来寻找极大化概率的树，
+而是通过MCMC(Markov Chain Monte Carlo)来采样指定模型能产生的进化树，进而找到极大化后验概率的
+那棵树~\cite{rannala96}。Bayes方法最大的优点是它无与伦比的灵活性。由于它生成树而不是对指定树计算概率，计算树的概率时涉及的许多复杂的
+解析计算可以得以避免。这样我们可以在Bayes框架下方便的使用或结合各种复杂的模型并从采样的树上自然的推断
+各种进化参数，也有可能将更合理的先验分布加入模型。另外，在MCMC过程中的采样树在某种程度上也可以看成是
+自展树\cite{larget99}。通过比较这些
+采样树我们也可以方便的计算显著值而不需要大量的计算资源。不过，要注意的是这些值往往过高于(excessively high)正确
+的显著值~\cite{suzuki02,cummings03,simmons04}。
+
+\section{约束邻接法} \label{sec:cnj}
+
+所有的传统建树方法都是无监督(unsupervised)算法，它们从来无法利用人提供的已知信息。即使我们知道一簇叶结点$A$是和另一簇$B$分开的，
+在重构树中它们可能还被混在了一起。然而在TreeFam中，我们必须能够在建完整树(full tree)时保留种子树(seed tree)的拓扑，
+或者说校正者的知识。这是一个带监督(supervised)的过程。我们必须设计新的算法来实现这一要求，否则如果完整树不能
+利用校正的拓扑，专家的工作就会付之东流。在这一节我们介绍TreeFam的第一个关键算法，约束邻接法。它能够把新的序列加到
+已知树中而不改变已知拓扑。
+
+\subsection{标准邻接法}
+
+如果存在一棵树使得树上任何一对叶结点间路径长度等于距离矩阵(distance matrix)给出的长度，那么这个距离矩阵称为可加的(additive)。
+反过来，如果一个距离矩阵是可加的，则必存在使得可加性成立的那棵树。邻接法~\cite{saitou87}就是用于
+找到这棵树的。
+
+在运用邻接法时，每一步都有一个连接一对近邻(neighbour)的新的内结点被加入树中；而给定一个对称的矩阵$d_{ij}$，一对近邻对是所有
+可能的$(i,j)$中使得$D_{ij}$最小的那对叶结点，其中$D_{ij}$定义为：
+\begin{eqnarray*}
+D_{ij}&=&d_{ij}-(r_i+r_j) \\
+r_i&=&\frac{1}{n-2}\sum_{k=1}^n d_{ik}
+\end{eqnarray*}
+当连接一对近邻$(I,J)$的新结点$K$被加入后，它们之间的距离棵计算为：
+\begin{eqnarray*}
+d_{IK}&=&\frac{1}{2}(d_{IJ}+r_I-r_J) \\
+d_{JK}&=&d_{IJ}-d_{IK}
+\end{eqnarray*}
+而$K$和所有其它结点的距离为：
+\[
+\mbox{$d_{Km}=\frac{1}{2}(d_{Im}+d_{Jm}-d_{IJ})$, for $m=1,2,\ldots,n$, $m\not=I$ and $m\not=J$}
+\]
+随着$I$和$J$的删除和$K$的加入，原来的$n\times n$矩阵化为$(n-1)\times(n-1)$的矩阵。至此一轮迭代结束。
+这个过程反复进行，直到矩阵仅为$3\times 3$时中止\footnote{因为无根二岔树的每一个内结点都有三个相连接的边}；遵循连接的过程我们就可以得到一棵二岔无根树，这就是
+邻接树。如果距离矩阵满足可加性(additivity)，这棵树就是使得可加性成立的那棵树。Durbin等人的书~\cite{durbin98}中
+给出了证明。
+
+在每一步邻接法将最小化$D_{ij}$的一对叶结点相连，而不是将最小化$d_{ij}$的一对相连，这是
+邻接法与UPGMA的主要区别之一。分子钟假设(molecular clock hypothesis)的失效常以出现长枝为特征，而当长枝出现时UPGMA方法
+就容易出现错误。最小化$D_{ij}$可以避免这样的错误连接，这是邻接法的长处。要注意的一点是邻接法要求
+举例矩阵是可加的，尽管真实数据很少满足可加性，但如果差别不大，邻接法也可以准确重构正确的进化树。
+
+\subsection{约束邻接法}
+
+约束邻接法总体思想是很简单的，它与普通邻接法唯一的不同是约束邻接法禁止违反约束树拓扑的连接；但
+由于在每一步所有的叶结点对都要参与判断，判断允许连接必须足够高效。事实上，如果我们注意到一次
+允许连接只能发生在据有相同父结点的两个叶结点之间，我们就可以在每一次使用一个约束时收缩约束树(constraining tree)，将已经使用的约束
+删除而把公用的父结点作为一个新的叶结点。由于判断两叶子是否具有共同父结点可在$O(1)$实现，判断是否是允许联结可以也在$O(1)$时间完成。因此
+约束邻接法和普通邻接法有着相同的时间复杂度$O(N^3)$。图\ref{fig:example-cnj}
+给出了一个具体例子。算法的详细描述参见表\ref{tab:cnj}，这张表也给出了标准邻接法。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.9}
+\caption[约束邻接法的一个例子]
+{约束邻接法的一个例子。在前三排，左边的树是在本步骤的约束树，右边的是剩余的结点和最好邻接。在第三步只剩下三个结点，
+它们会被连在一起而形成一个三分岔点。最后的结果显示于最后一排。要注意的是，结点`3'没有出现在约束树中，如果
+在某一步有结点和它近邻(neighbour)，它可以自由的和`3'结点邻接。}\label{fig:example-cnj}
+\end{center}
+\end{figure}
+
+\begin{table}[!hb]
+\begin{center}
+\caption[约束邻接法]
+{约束邻接法。除以`$\ast$'开头的行就可以得到标准的邻接法。}\label{tab:cnj}
+\begin{tabular}{|ll|}
+\hline
+&\textbf{Input:} \\
+&\lhspace Distance matrix $(d_{ij})$ \\
+&\lhspace A rooted constraining tree $C$ with all its leaves appearing in the matrix \\
+&\textbf{Output:} \\
+&\lhspace A neighbour-joining tree $T=(V(T),E(T))$ \\
+&\textbf{Procedure:} \\
+&\lhspace Let $\mathcal{L}$ be the set of nodes that appear in the distance matrix \\
+&\lhspace$\mathcal{L}_C\gets V_E(C)$ \\
+&\lhspace$V(T)\gets\mathcal{L}$ \\
+&\lhspace$E(T)\gets\emptyset$ \\
+&\lhspace\textbf{while} $|\mathcal{L}|>2$ \textbf{do} \\
+&\lhspace\lhspace{\bf for} each node $i\in\mathcal{L}$ {\bf do} \\
+&\lhspace\lhspace\lhspace$r_i\gets\frac{1}{|\mathcal{L}-2|}\sum_{k\in\mathcal{L}}d_{ik}$ \\
+&\lhspace\lhspace{\bf for} each node pair $(i,j)\in\mathcal{L}\times\mathcal{L}$ {\bf do} \\
+&\lhspace\lhspace\lhspace$M\gets\infty$\\
+&\lhspace\lhspace\lhspace$D_{ij}\gets d_{ij}-(r_i+r_j)$\\
+&\lhspace\lhspace\lhspace\textbf{if} $D_{ij}<M$ \textbf{then} \\
+$\ast$&\lhspace\lhspace\lhspace\lhspace{\bf if} $\{i,j\}\not\subset\mathcal{L}_C$ {\bf OR} $\lhparent_C(i)=\lhparent_C(j)$ {\bf then} \\
+&\lhspace\lhspace\lhspace\lhspace\lhspace$M\gets D_{ij}$, $I\gets i$ and $J\gets j$ \\
+&\lhspace\lhspace$V(T)\gets V(T)\cup\{K\}$\\
+&\lhspace\lhspace$E(T)\gets E(T)\cup\{(K,I)\}\cup\{(K,J)\}$\\
+&\lhspace\lhspace{\bf for} each node $m\in\mathcal{L}$ {\bf do}\\
+&\lhspace\lhspace\lhspace$d_{Km}\gets\frac{1}{2}(d_{Im}+d_{Jm}-d_{IJ})$\\
+&\lhspace\lhspace$d_{IK}\gets\frac{1}{2}(d_{IJ}+r_I-r_J)$ \\
+&\lhspace\lhspace$d_{JK}\gets d_{IJ}-d_{IK}$ \\
+&\lhspace\lhspace$\mathcal{L}\gets\left(\mathcal{L}\cup\{K\}\right)\setminus\{I,J\}$ \\
+$\ast$&\lhspace\lhspace\textbf{if} $\{I,J\}\cap\mathcal{L}_C\neq\emptyset$ \textbf{then} \\
+$\ast$&\lhspace\lhspace\lhspace\textbf{if} $\lhchild(\lhparent_C(I))=\{I,J\}$ \textbf{then} \\
+$\ast$&\lhspace\lhspace\lhspace\lhspace$\lhparent_C(K)\gets\lhparent_C(\lhparent_C(I))$ \\
+$\ast$&\lhspace\lhspace\lhspace\textbf{else if} $I\in\mathcal{L}_C$ \textbf{then}\\
+$\ast$&\lhspace\lhspace\lhspace\lhspace$\lhparent_C(K)\gets\lhparent_C(I)$ \\
+$\ast$&\lhspace\lhspace\lhspace\textbf{else if} $J\in\mathcal{L}_C$ \textbf{then}\\
+$\ast$&\lhspace\lhspace\lhspace\lhspace$\lhparent_C(K)\gets\lhparent_C(J)$ \\
+$\ast$&\lhspace\lhspace\lhspace$\mathcal{L}_C\gets\left(\mathcal{L}_C\cup\{K\}\right)\setminus\{I,J\}$ \\
+&\lhspace add a new node $K$ that joins the remaining three nodes in $\mathcal{L}$ \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+\subsection{进一步的讨论}
+事实上，约束邻接法并不遵循“邻接”这个规则。它不能保证一对近邻(neighbour)总能被联结。这是因为
+约束邻接法总是假定约束树是一棵有根树，它不会考虑其它有根拓扑而强行的按照给定树结点的后缀顺序(suffix order)\footnote{如果
+以后缀顺序来遍历一棵有根树的所有结点，较低的结点总会先于较高的结点被遍历到。}来进行
+连接。为了解释这一点，我们来看一个例子。假定我们有一棵树{\tt ((1,2),3,4)}由
+标准的NJ方法构建。从这个结果上看，唯一的一次连接发生在{\tt 1}和它的近邻{\tt 2}之间。现在我们继续
+假定定根后这棵树为{\tt (((3,4),2),1)}并用这个有根树作为约束。那么在应用上述约束邻接法时，尽管真正的近邻{\tt (1,2)}在无根拓扑中是符合约束的，
+{\tt (3,4)}也一定会被先连接起来。因此，约束邻接法会打乱连接的顺序而破坏邻接原则。
+
+如果距离矩阵严格满足可加性，或者说如果两个叶结点间路径的长度总与矩阵中的距离相等，
+那么连接结点的顺序并不重要，无论以怎样的顺序联结都会得到完全相同的树。但在现实中，
+严格的可加性很少满足，即使把一棵标准的NJ树作为约束，约束邻接法经常会生成一棵拓扑相同而
+枝长不同的树。
+
+出于这个原因，我们还开发了另一种可以以无根树为约束的约束邻接法。在前面给出的例子中，
+新的算法能够正确的把近邻{\tt (1,2)}相联结。这也是一个$O(N^3)$的算法，但它的不足是只能
+应用于二岔约束树，否则它时间复杂度就会增加。这个算法比前面给出的复杂得多，我们这里不再讨论
+这个算法。
+
+\section{树的定根} \label{sec:root-tree}
+
+如果我们认为地球上所有物种都只有一个共同祖先，那么所有的进化树都是有根的，即进化是有方向的。但是，常用的邻接法和极大似然法
+只能构造无根树，因此我们必须有算法来为无根树定根。定根同建树一样重要，一个错误的根描述着不同的
+进化历程。
+
+定根有三种方法。最常用的一种是在参与建树的叶结点中选取一个外群，然后把根直接定在连接这个外群序列的枝上。
+但是，在缺少充分生物证据的情况下，外群的选择很困难，尤其是对于那些复杂的基因家族。为TreeFam的每一个
+基因家族都指定一个外群是不切实际的，因此该方法未在TreeFam中使用。
+
+第二种方法是从所有有根拓扑中选择高度最矮的有根树，这相当于把根定在叶结点间最长路径的中点。如果
+序列的进化基本符合分子钟条件，这种算法能够给出正确的根~\cite{durbin98}。Huelsenbeck~\cite{huelsenbeck02}等人又进一步
+将这种方法纳入了Bayes理论的框架中。
+
+更好的是第三种算法，这也是TreeFam所使用的算法。这种算法通过选择和物种树尽可能相像的有根树来定根~\cite{zmasek01}，而在下面一章我们会看到，
+这种物种树和基因树的相似性可以从基因树上推断出的最简约倍增/缺失事件数来判断，越小则越相似。
+如果参与建树的序列确是属于一个基因家族的序列并且在这个家族没有发生很多缺失事件，这个方法一般都能
+找到正确的树根。值得注意的是倍增和缺失事件都应该被考虑用来定根；只数倍增数经常会导致许多具有相同倍增数的有根拓扑~\cite{page97}。
+
+\section{自展检验}\label{sec:bootstrap}
+
+从统计的角度，用于建树的序列可以看成是符合某种进化模型的所有序列的抽样，因此重构树在某种程度上
+也是一个随机变量，检验这个随机变量的稳定性，即检验一个拓扑是否易受随机事件影响，对
+重构进化树至关重要。
+
+有几种方法都可以用来检验树的稳定性，但使用最广泛的是自展法(bootstrap)\cite{efron79,felsenstein85}。自展法的输入是一个多序列比对$(X_{ij})_{n\times m}$
+和从这个比对建的一棵树$T$，其中$X_{ij}$是比对中第$i$条序列第$j$个位置上的残基；自展法的输出是
+$T$中的一条枝出现在从$X$随机抽样生成的比对建得的树的频率。具体来说，在一轮自展中，
+我们从比对$(X_{ij})$的$m$列位点中带放回的重复抽样$m$次，每次抽一列，并将抽样出的$m$列位点组成一个新的比对(称做重抽样比对)$(X^r_{ij})$。
+我们再用$X^r$建树得到$T^r$(称为重抽样树)，并比较$T$和$T^r$：对$T$的每一条枝$A|B\in\tilde{T}$，如果$A|B$也出现在
+$T^r$中，则在枝$A|B$的计数上累加1；否则不加。当我们把这个过程重复比如说1000次后，枝$A|B$上的计数
+就称为自展值，越大则越好。
+
+更严格地说，给定一个比对$(X_{ij})_{n\times m}$和从$(X)$上建的树$T$，重抽样比对是这样一个随机矩阵：
+\begin{equation}
+X^r_{ij}=X_{iJ_j}
+\end{equation}
+其中随机变量$J_j$, $j=1,\ldots,m$服从$[1,m]$上的离散均匀分布，即对所有$k=1,\ldots,m$，$\Pr\{J_j=k\}=\frac{1}{m}$。
+令$T^r$是从$X^r$中建的树，则$T$一条边$A|B\in\tilde{T}$的自展支持为：
+\begin{equation}
+\mathcal{B}(A|B)=\Pr\{\mbox{二分$A|B\in\tilde{T^r}$}\}
+\end{equation}
+
+经过变形，如上描述的的自展过程的计算也可以对有根树计算，但是由于定根的困难，这种用法比较少见。另外，
+自展法也可以用于关于树的各种统计量的计算，基本思想是类似的。
+
+\section{叶结点重排算法}\label{sec:reorder}
+
+从数学上说，树是一个抽象的实体，它的叶结点组成一个集合而没有顺序的说法；但是当把树画在纸上，我们必须
+把叶子排成一定的顺序。尽管无论这个顺序怎样画在平面上的树在数学上说都是相同的(identical)，但这些树在人的眼中可能
+大不相同。同一棵树按不同叶子顺序画两遍视觉上可能根本无法分辨；两棵大树进行比较，找到不一致的分枝经常是极为困难的。
+怎样将树按照指定的方式画出来对树的显示十分重要。
+
+在这一小节将描述怎样将树按照一个指定的方式画出来，或者说怎样将叶结点按指定的方式排列，使得
+相似的树在视觉上总是相似的。为了达到这一目的，我们要为每一个叶结点赋予一个权重，并设计一个
+目标函数使得在它得到优化时，权重小的叶结点倾向于排列在权重大的结点之前。这个优化过程可以用
+一个直观而又准确的$O(N)$算法实现。
+
+简单起见，这一小节只讨论有根二岔树。对一般有根树的推广其实也很容易。
+
+\subsection{叶结点重排问题及算法}
+
+给定一棵有$n$个叶结点的有根二岔树$G$，即$|V_E(G)|=n$，定义$G$的一个顺序(order)为一个一一映射$I: V_E(G)\rightarrow \{1,\ldots,n\}$，
+使得存在一个NH字串(NH string)满足$v\in V_E(G)$出现在字串中的第$I(v)$个位置上。如果$G$是一个二岔树，
+共存在有$2^{n-1}$个不同的顺序，代表着在$n-1$个内结点上不同的两枝交换。如前面所讨论的(Section~\ref{sec:nhformat})，
+NH字串和树画在纸上的图形有着自然的一一对应关系，一个顺序$I$事实上决定了树应该以怎样的方式画在纸上(见图\ref{fig:orderexample})。
+如果我们进一步赋予每个叶结点$v$一个权重$W(v)\in\Re$，叶结点重排问题指找到一个顺序$I$使得如下目标函数
+最小：
+\begin{equation}\label{equ:reorderobj}
+\sum_{v\in V_E(G)}{[W(v)-\alpha I(v)]^2}
+\end{equation}
+其中$\alpha>0$是一个常数。由于$I$是一个一一映射，则$I^{-1}$必然存在，我们就可以将方程\ref{equ:reorderobj}
+变形为：
+\begin{eqnarray*}
+&& \min_I\sum_{v\in V_E(G)}{[W(v)-\alpha I(v)]^2}\\
+&=&\sum_v W^2(v)+\sum_v {\alpha^2 I^2(v)}- 2\alpha\max_I\sum_v{W(v)I(v)} \\
+&=&\sum_v W^2(v) + \alpha^2\sum_i i^2 - 2\alpha\max_I\sum_v{W(v)I(v)} \\
+&\sim& \max_I\sum_v{W(v)I(v)}\\
+&=& \max_I\sum_{i=1}^n {i\cdot W(I^{-1}(i))}
+\end{eqnarray*}
+这样，叶结点重排问题就是寻找一个$I$使得下面式子极大：
+\begin{equation}\label{equ:reorderobj2}
+\sum_{i=1}^n {i\cdot W(I^{-1}(i))}
+\end{equation}
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.2}
+\end{center}
+\caption[叶结点的顺序]{叶结点的顺序。图上显示的两个树据有相同的拓扑但有着不同的顺序(order)。左边的树的
+NH字串为{\tt ((A,B),(C,D))}，因此$I(A)=1$，$I(B)=2$，$I(C)=3$以及$I(D)=4$；
+在右边，NH字串为{\tt ((C,D),(A,B))}因而$I'(A)=3$，$I'(B)=4$，$I'(C)=1$和$I'(D)=2$。}
+\label{fig:orderexample}
+\end{figure}
+
+叶结点重排问题最直接的算法是枚举所有可能$I$，但这个算法无疑是最差的。事实上，
+不同结点的分枝交换是相互独立的，也就是说如果在一个结点上的分枝交换能够降低
+目标函数(方程\ref{equ:reorderobj})的值，它就总能降低这个值而不管在其它结点如何交换分枝。
+因此，我们总能应用$n-1$次独立的分枝交换来找到最优的$I^*$。现在，剩下的问题就是如何在一个结点
+上选择合适的交换型。这个规则其实也很简单：在一个内结点，交换分枝使得它左子树上平均叶结点权重小于
+它右子树上的平均权重。我们来证明这一点。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.1}
+\end{center}
+\caption[左右树交换后的两个顺序]
+{左右树交换后的两个顺序。交换之后在左边树中第$(j+1)$位置上的叶子出现在右边树第$(j+l+1)$位置上；而第$(j+k+1)$个叶子
+出现在了$(j+1)$。数学化一些，当$i=1\ldots k$时，$I'(I^{-1}(j+i))=j+l+i$，而当$i=1\ldots l$时$I'(I^{-1}(j+k+i))=j+i$。}\label{fig:orderfig}
+\end{figure}
+
+图\ref{fig:orderfig}给出了两个顺序：交换前的$I$和交换后的$I'$。令$w_i\equiv W(I^{-1}(i))$以及
+$w'_i\equiv W(I'^{-1}(i))$，$i=1,\ldots,n$，则$w_i$是在顺序$I$下的第$i$个叶结点权重，而
+$w'_i$是$I'$下第$i$个叶结点的权重。从图中给出的叶子顺序的变换我们知道下列关系成立：
+\[\begin{array}{rcll}
+w_i &=& w'_i & (i=1,\,\ldots,\,j,\,j\!+\!k\!+\!l\!+\!1,\,\ldots,\,n) \\
+w_{i+j} &=& w'_{i+j+l} & (i=1,\,\ldots,\,k) \\
+w_{i+j+k} &=& w'_{i+j} & (i=1,\,\ldots,\,l) \\
+\end{array}\]
+这样我们就可以在交换前后比较目标函数\ref{equ:reorderobj2}。
+\begin{eqnarray*}
+&& \sum_{i=1}^n {i\cdot W(I^{-1}(i))} - \sum_{i=1}^n {i\cdot W(I'^{-1}(i))}\\
+&=&  \sum_{i=1}^n{i w_i}-\sum_{i=1}^n{i w'_i} \\
+&=&  \sum_{i=j+1}^{j+k+l}{i w_i}-\sum_{i=j+1}^{j+k+l}{i w'_i} \\
+&=& \left[\sum_{i=1}^k {(i\!+\!j) w_{i+j}} + \sum_{i=1}^l {(i\!+\!j\!+\!k) w_{i+j+k}}\right]
+	- \left[\sum_{i=1}^l {(i\!+\!j) w'_{i+j}} + \sum_{i=1}^k {(i\!+\!j\!+\!l) w'_{i+j+l}}\right] \\
+&=& \left[\sum_{i=1}^k {(i\!+\!j) w_{i+j}} + \sum_{i=1}^l {(i\!+\!j\!+\!k) w_{i+j+k}}\right]
+	- \left[\sum_{i=1}^l {(i\!+\!j) w_{i+j+k}} + \sum_{i=1}^k {(i\!+\!j\!+\!l) w_{i+j}}\right] \\
+&=& \sum_{i=1}^l {k w_{i+j+k}} - \sum_{i=1}^k {l w_{i+j}} \\
+&=& kl\cdot\left(\frac{1}{l}\sum_{i=1}^l w_{i+j+k} - \frac{1}{k}\sum_{i=1}^k w_{i+j}\right)
+\end{eqnarray*}
+在这个式子中，$\frac{1}{k}\sum_{i=1}^k w_{i+j}$是交换前左子树平均叶结点权重，而$\frac{1}{l}\sum_{i=1}^l w_{i+j+k}$
+是右子树的平均权重。很明显，只有当左子树平均权重更大时原来的树才需要交换分枝。这就证明了上一段中提出的命题，进而证明了叶结点重排算法。
+
+\subsection{权重函数的定义}
+
+权重函数$W(\cdot)$决定了叶结点该如何重排。TreeFam目前使用两种权重函数。第一种基于
+一棵已经定好顺序(order)的物种树，第二种则基于已定顺序的基因树。
+
+假定我们有一棵物种树$S$及其顺序$I_s:V_E(S)\rightarrow\{1,\ldots,|V_E(S)|\}$，叶结点$g\in V_E(G)$的权重
+可定义为：
+\begin{equation}
+W_s(g) = I_s(M(g))
+\end{equation}
+其中 $M(g)\in V_E(G)$是基因$g$的物种。这样的一个权重函数倾向于将基因树$G$的叶结点
+排列得类似于物种树。
+
+叶结点重排也有助于比较从同一个序列集构造出来的两棵进化树。假设我们有一棵树$G_0$和
+它的一个顺序$I_0$，我们想把用另一种算法构建的树$G_1$按相似的形状画出来。我们可以定义：
+\begin{equation}
+W_0(g) = I_0(g)
+\end{equation}
+令$\alpha=1$，当两棵树相同时目标函数\ref{equ:reorderobj}会等于零，那么两棵树就会以完全相同的方式在视觉上表现
+出来。但要注意的是如果两棵树不是很不相同，目标函数\ref{equ:reorderobj}也可能为零。这是因为
+这样的一个目标函数只考虑了叶结点而没有考虑内结点的拓扑(图\ref{fig:reorder-exa})。要看两棵树是否据有相同拓扑应该
+去比较一棵树的每一分枝是否在另一棵树中出现。第一章已经给出了详细的说明。
+
+\begin{figure}[!hb]
+\begin{center}
+\includegraphics{mpfig.8}
+\caption[叶结点重排算法的一个例子]{叶结点重排算法的一个例子。
+	树$G_1$是一棵带顺序的树。我们的目的是将$G_2$的叶结点排列成与$G_1$相似的顺序。右上方的树
+	显示了$G_2$原来的顺序。在$g_2^c$结点，左子树的平均权重为$4.5$比右子树的权重大，在这个结点
+	交换左右子树我们得到右下方的树形。而在结点$g_1^c$，左子树的平均权重也大于右子树，我们交换分枝
+	而得到最终的结果(左下方)。这个例子中，重排后$G_2$的叶子和$G_1$的出现顺序相同，尽管它们拓扑不同。}\label{fig:reorder-exa}
+\end{center}
+\end{figure}
+
+}
