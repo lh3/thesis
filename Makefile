@@ -1,4 +1,4 @@
-NJTREE=		njtree
+NJTREE=		treebest
 FILES=		mpfig.1 mpfig.2 mpfig.3 mpfig.4 mpfig.5 mpfig.7 mpfig.8 mpfig.9 mpfig.10 mpfig.11\
 			thesis.tex build-tree.tex \
 			dli.tex \
